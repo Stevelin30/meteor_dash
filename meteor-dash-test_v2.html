@@ -36,6 +36,7 @@
       <button id="btnStart">Start</button>
       <button id="btnPause" disabled>Pause</button>
       <button id="btnMute" aria-pressed="false">🔊</button>
+      <button id="btnEnableMusic" style="display:none;">Enable Music</button>
       <div class="volwrap">
         <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.4">
         <span id="volLabel" style="display:inline-block; width:34px; text-align:right;">40%</span>
@@ -56,7 +57,7 @@
 
 <!-- Background music (loops). Replace src with your own if desired. -->
 <audio id="bgMusic" loop preload="auto">
-  <source src="https://drive.google.com/uc?export=download&id=1oOr4tEnNMLX6Ncfr9tKBv4Rk9MWA1Ew-" type="audio/mpeg">
+  <source src="music.mp3" type="audio/mpeg">
 </audio>
 
 <script>
@@ -90,6 +91,8 @@
 
   // Background music + master volume
   const bgMusic = document.getElementById('bgMusic');
+  const btnEnableMusic = document.getElementById('btnEnableMusic');
+  
   let masterVolume = parseFloat(volSlider.value)||0.4;
   let muted = false;
   function setVolume(v){
@@ -97,6 +100,16 @@
     if (bgMusic) bgMusic.volume = masterVolume;
     volSlider.value = String(masterVolume);
     volLabel.textContent = Math.round(masterVolume*100)+'%';
+  }
+  async function tryPlayMusic(){
+    if(!bgMusic) return;
+    try{
+      await bgMusic.play();
+      btnEnableMusic.style.display='none';
+    }catch(err){
+      // If autoplay is blocked or remote host prevents streaming, show manual enable
+      btnEnableMusic.style.display='inline-block';
+    }
   }
   setVolume(masterVolume);
   volSlider.addEventListener('input', e=> setVolume(parseFloat(e.target.value)||masterVolume));
@@ -110,7 +123,9 @@
     muted = !muted;
     btnMute.textContent = muted? '🔇' : '🔊';
     btnMute.setAttribute('aria-pressed', String(muted));
-    if(bgMusic){ if(muted) bgMusic.pause(); else bgMusic.play().catch(()=>{}); }
+    if(bgMusic){ if(muted) bgMusic.pause(); else tryPlayMusic(); }
+  });
+  btnEnableMusic.addEventListener('click',()=>{ if(bgMusic){ tryPlayMusic(); }}); }
   });
 
   // Ships
@@ -172,7 +187,11 @@
   btnPause.addEventListener('click',()=>togglePause());
 
   function togglePause(){ if(!state.running) return; state.paused=!state.paused; btnPause.textContent=state.paused? 'Resume':'Pause'; if(!state.paused){ last=performance.now(); requestAnimationFrame(loop); } }
-  function start(){ reset(); state.running=true; btnPause.disabled=false; btnStart.textContent='Restart'; last=performance.now(); requestAnimationFrame(loop); if(!muted && bgMusic){ bgMusic.play().catch(()=>{}); } tone(700,0.08,'square',0.05); }
+  function start(){
+    reset(); state.running=true; btnPause.disabled=false; btnStart.textContent='Restart'; last=performance.now(); requestAnimationFrame(loop);
+    if(!muted && bgMusic){ bgMusic.currentTime=0; tryPlayMusic(); }
+    tone(700,0.08,'square',0.05);
+  }
 
   // Spawning
   function spawnObstacle(){ const w=28+Math.random()*42; const h=w*(0.8+Math.random()*0.3); const x=Math.random()*(W-w); const y=-h-10; const vy=state.speed + Math.random()*2.0 + state.t*0.0003; state.obstacles.push({x,y,w,h,vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.05}); }
