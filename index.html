@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Meteor Dash — Stable Build (Music Fade + Loop)</title>
+<title>Meteor Dash — Final Build (Brand + Touch + Overlay Loop)</title>
 <style>
   :root{ --bg:#0b1020; --fg:#e2e8f0; }
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; }
@@ -21,6 +21,37 @@
   .volwrap{ display:flex; align-items:center; gap:6px; }
   #musicVolume{ width:110px; }
   #err{ position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#7f1d1d; color:#fff; padding:12px; border:2px solid #fecaca; border-radius:10px; font-family:ui-monospace,monospace; display:none; white-space:pre-wrap }
+
+  /* Title overlay */
+  #titleOverlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6));
+    z-index:15;
+  }
+  #titleOverlay .card{
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);
+    padding:24px 28px; border-radius:16px; text-align:center; backdrop-filter:blur(2px);
+  }
+  #titleOverlay h1{ margin:0 0 8px; font-size:32px; font-weight:900; }
+  #titleOverlay p{ margin:0 0 14px; opacity:.9; }
+  #bigStart{ font-size:18px; font-weight:800; padding:8px 16px; }
+
+  /* Touch controls */
+  #touchControls{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    display:none; gap:16px; z-index:20;
+  }
+  #touchControls button{
+    width:64px; height:64px; border-radius:9999px;
+    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.2);
+    color:#fff; font-size:26px; font-weight:800;
+  }
+  #touchControls button:active{ transform:scale(0.97); }
+  @media (pointer: coarse){
+    #touchControls{ display:flex; }
+    header .controls > span { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -46,33 +77,48 @@
   <canvas id="canvas"></canvas>
 
   <footer>
+    <span>© stevelin30 productions · v1.0</span>
     <span>Move: ← → or A/D</span>
     <span>Pause: P · Restart: R</span>
   </footer>
 </div>
 
-<!-- Plays local music.mp3 (put it NEXT TO this file). -->
+<!-- Title overlay -->
+<div id="titleOverlay">
+  <div class="card">
+    <h1>stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span></h1>
+    <p>Meteor Dash — Outrun the debris. Grab coins. Try not to explode.</p>
+    <p><em>How to Play: Use ← → (A/D) or touch buttons to move. Collect coins, dodge meteors!</em></p>
+    <button id="bigStart">Start</button>
+  </div>
+</div>
+
+<!-- Touch controls -->
+<div id="touchControls">
+  <button id="btnLeft" aria-label="Move Left">◀</button>
+  <button id="btnRight" aria-label="Move Right">▶</button>
+</div>
+
 <audio id="bgMusic" loop preload="auto">
   <source src="music.mp3" type="audio/mpeg" />
 </audio>
-
 <div id="err"></div>
 
 <script>
 (function(){
-  // ------- Error overlay -------
+  // ===== Error overlay =====
   const errBox = document.getElementById('err');
   function showErr(msg){ errBox.style.display='block'; errBox.textContent=msg; console.error(msg); }
   window.onerror = (m,src,l,c,e)=> showErr(`JS Error: ${m}\n${src}:${l}:${c}${e&&e.stack?'\n'+e.stack:''}`);
   window.addEventListener('unhandledrejection', e=> showErr('Promise rejection: '+e.reason));
 
-  // ------- Canvas + sizing FIRST -------
+  // ===== Canvas & sizing =====
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
   let W=0, H=0;
 
-  // Default difficulty BEFORE any draw to avoid early access errors
+  // Default difficulty to avoid early-access crash
   let selectedDifficulty = { name:'Normal', speed:2.3, spawn:400, coin:900, multiplier:1.0, starDensity:0.22, palette:['#0b1020','#12183b'], parallax:[0.15,0.35,0.7] };
 
   function resize(){
@@ -92,7 +138,7 @@
   }
   addEventListener('resize', resize, {passive:true});
 
-  // ------- UI -------
+  // ===== UI =====
   const elScore = document.getElementById('scoreLabel');
   const elHi = document.getElementById('hiLabel');
   const btnStart = document.getElementById('btnStart');
@@ -103,29 +149,46 @@
   const shipSelect = document.getElementById('shipSelect');
   const difficultySelect = document.getElementById('difficultySelect');
 
+  const titleOverlay = document.getElementById('titleOverlay');
+  const bigStart = document.getElementById('bigStart');
+  const btnLeft = document.getElementById('btnLeft');
+  const btnRight = document.getElementById('btnRight');
+
   let hi = 0; try{ hi = Number(localStorage.getItem('meteorDash_hi')||0); }catch(_){ }
   elHi.textContent = `Best: ${hi}`;
 
-  // ------- Audio: WebAudio graph for fades -------
+  // ===== Text helpers (bold + outline) =====
+  function setBoldFont(size=16, weight=800){ return `${weight} ${size}px ui-sans-serif,system-ui`; }
+  function drawTextOutlined(ctx, text, x, y, {
+    size = 16, weight = 800, align = 'left', baseline = 'alphabetic',
+    fill = '#ffffff', outline = 'rgba(0,0,0,0.85)', outlineWidth = 4
+  } = {}){
+    ctx.save();
+    ctx.font = setBoldFont(size, weight);
+    ctx.textAlign = align; ctx.textBaseline = baseline;
+    ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+    ctx.strokeStyle = outline; ctx.lineWidth = outlineWidth; ctx.strokeText(text, x, y);
+    ctx.fillStyle = fill; ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  // ===== Audio (looping + fade) =====
   const bgMusic = document.getElementById('bgMusic');
   const AudioCtx = window.AudioContext||window.webkitAudioContext;
   let ac = null, muted = false, masterVolume = parseFloat(volSlider.value)||0.4;
-  let musicSource = null, musicGain = null; // nodes for bg music
+  let musicSource = null, musicGain = null;
 
   function ensureAudio(){ if(!ac) ac = new AudioCtx(); }
   function ensureMusicGraph(){
     try{
-      ensureAudio();
-      if(!bgMusic) return;
+      ensureAudio(); if(!bgMusic) return;
       if(!musicSource){
         musicSource = ac.createMediaElementSource(bgMusic);
-        musicGain = ac.createGain();
-        musicGain.gain.value = masterVolume;
-        musicSource.connect(musicGain);
-        musicGain.connect(ac.destination);
-        bgMusic.volume = 1.0; // use WebAudio for volume/fades
+        musicGain = ac.createGain(); musicGain.gain.value = masterVolume;
+        musicSource.connect(musicGain); musicGain.connect(ac.destination);
+        bgMusic.volume = 1.0; // WebAudio handles fades
       }
-    }catch(e){ /* ignore double-connect errors */ }
+    }catch(e){ /* ignore double-connect */ }
   }
   function setVolume(v){
     masterVolume = Math.max(0, Math.min(1, v));
@@ -139,52 +202,36 @@
 
   async function tryPlayMusic(){
     if(!bgMusic) return;
-    try{
-      ensureAudio(); ensureMusicGraph();
-      await bgMusic.play();
-    }catch(e){ /* autoplay may be blocked until a gesture */ }
+    try{ ensureAudio(); ensureMusicGraph(); await bgMusic.play(); }
+    catch(e){ /* gesture may be needed */ }
   }
-  function fadeMusic(to=1, ms=300){
+  function fadeMusic(to=1, ms=250){
     if(musicGain && ac){
-      const now = ac.currentTime;
-      const start = musicGain.gain.value; // already scaled by masterVolume
-      musicGain.gain.setValueAtTime(start, now);
-      const target = Math.max(0,to) * masterVolume;
+      const now = ac.currentTime; const current = musicGain.gain.value; const target = Math.max(0,to)*masterVolume;
+      musicGain.gain.setValueAtTime(current, now);
       musicGain.gain.linearRampToValueAtTime(target, now + ms/1000);
     }else if(bgMusic){
       const start = bgMusic.volume; const target = Math.max(0,to);
-      const steps = 12; const step = (target-start)/steps; let i=0;
-      const id = setInterval(()=>{ i++; bgMusic.volume = Math.max(0, Math.min(1, start + step*i)); if(i>=steps) clearInterval(id); }, Math.max(16, ms/steps));
+      const steps = 12; const step=(target-start)/steps; let i=0;
+      const id=setInterval(()=>{ i++; bgMusic.volume=Math.max(0,Math.min(1,start+step*i)); if(i>=steps) clearInterval(id); }, Math.max(16, ms/steps));
     }
   }
-
   function tone(freq=880, dur=0.09, type='sine', vol=0.05){
     if(muted) return;
-    try{
-      ensureAudio();
-      const o=ac.createOscillator(), g=ac.createGain();
-      o.type=type; o.frequency.value=freq; g.gain.value = vol * masterVolume;
-      o.connect(g); g.connect(ac.destination); o.start();
-      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur);
-      o.stop(ac.currentTime+dur);
-    }catch(e){ showErr('Audio error: '+e); }
+    try{ ensureAudio(); const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=vol*masterVolume; o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur); o.stop(ac.currentTime+dur); }
+    catch(e){ showErr('Audio error: '+e); }
   }
-
   btnMute.addEventListener('click', ()=>{
-    muted = !muted;
-    btnMute.textContent = muted ? '🔇' : '🔊';
-    btnMute.setAttribute('aria-pressed', String(muted));
+    muted = !muted; btnMute.textContent = muted ? '🔇' : '🔊'; btnMute.setAttribute('aria-pressed', String(muted));
     if(bgMusic){ if(muted){ fadeMusic(0,250); setTimeout(()=>bgMusic.pause(),260); } else { tryPlayMusic(); fadeMusic(1,250); } }
   });
-
-  // Unlock audio graph on first gesture
   ;['click','keydown','touchstart'].forEach(evt=>{
     window.addEventListener(evt, async ()=>{
       try{ ensureAudio(); if(ac.state==='suspended') await ac.resume(); ensureMusicGraph(); if(!muted && bgMusic && bgMusic.paused){ await bgMusic.play(); fadeMusic(1,200); } }catch(_){ }
     }, {once:true, passive:true});
   });
 
-  // ------- Ships & Difficulty -------
+  // ===== Ships & Difficulty =====
   const ships = [
     {name:'Red',   color1:'#f87171', color2:'#ef4444'},
     {name:'Blue',  color1:'#60a5fa', color2:'#2563eb'},
@@ -207,15 +254,12 @@
   const difficulties = [
     {name:'Easy',   speed:1.6, spawn:520, coin:650, multiplier:1.0, starDensity:0.18, palette:['#0b1020','#0e1633'], parallax:[0.1,0.25,0.5]},
     {name:'Normal', speed:2.3, spawn:400, coin:900, multiplier:1.0, starDensity:0.22, palette:['#0b1020','#12183b'], parallax:[0.15,0.35,0.7]},
-    {name:'Hard',   speed:3.1, spawn:300, coin:1250, multiplier:1.2, starDensity:0.26, palette:['#0a0c24','#15183f'], parallax:[0.2,0.5,0.9]},
+    {name:'Hard',   speed:3.1, spawn:300, coin:1250, multiplier:1.2, starDensity:0.26, palette:['#0a0c24','#0f1640'], parallax:[0.2,0.5,0.9]},
     {name:'Insane', speed:4.2, spawn:200, coin:2100, multiplier:1.5, starDensity:0.32, palette:['#120a20','#2a0e3c'], parallax:[0.28,0.7,1.2]}
   ];
-  selectedDifficulty = difficulties[1]; // reassign after default exists
-
+  selectedDifficulty = difficulties[1];
   difficulties.forEach((d,i)=>{
-    const b=document.createElement('button');
-    b.className='difficulty-btn'+(i===1?' selected':'');
-    b.textContent=d.name;
+    const b=document.createElement('button'); b.className='difficulty-btn'+(i===1?' selected':''); b.textContent=d.name;
     b.addEventListener('click', ()=>{
       document.querySelectorAll('.difficulty-btn').forEach(el=>el.classList.remove('selected'));
       b.classList.add('selected'); selectedDifficulty=d; rebuildStars(true); drawStart();
@@ -223,7 +267,20 @@
     difficultySelect.appendChild(b);
   });
 
-  // ------- Game State -------
+  // ===== Comedic Game Over lines =====
+  const funnyDeaths = [
+    "Oops… your insurance premium just skyrocketed!",
+    "Houston, we have a YOU problem.",
+    "That’ll buff right out. Probably.",
+    "Your ship’s warranty does not cover meteor damage.",
+    "Well, that escalated quickly.",
+    "Looks like you’ve joined the space debris club.",
+    "Next time, try steering!",
+    "Meteor 1, You 0.",
+    "The galaxy says: better luck next run!"
+  ];
+
+  // ===== Game State =====
   const state = {
     running:false, paused:false, t:0, score:0, speed:selectedDifficulty.speed,
     spawnTimer:0, coinTimer:0,
@@ -232,7 +289,7 @@
     input:{left:false,right:false}
   };
 
-  // ------- Background stars -------
+  // ===== Background stars =====
   let starsFG=[], starsMG=[], starsBG=[];
   function rebuildStars(reset){
     if(!reset) return;
@@ -251,7 +308,7 @@
     for(const s of starsFG){ ctx.fillRect(s.x,s.y,3,3); s.y+=selectedDifficulty.parallax[2]; if(s.y>H) s.y=0; }
   }
 
-  // ------- Draw entities -------
+  // ===== Draw entities =====
   function drawPlayer(p){
     ctx.save();
     p.tilt += ((p.vx/7)-p.tilt)*0.1;
@@ -264,7 +321,6 @@
     ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85);
     ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85);
     ctx.closePath(); ctx.fill();
-    // cockpit
     ctx.fillStyle='rgba(173,216,230,0.65)';
     ctx.beginPath(); ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
@@ -284,48 +340,47 @@
     const g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r); g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#fbbf24');
     ctx.fillStyle=g; ctx.fill(); ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=1; ctx.stroke();
   }
-  function drawHUD(){ ctx.fillStyle='#fff'; ctx.font='600 16px ui-sans-serif,system-ui'; ctx.textAlign='left'; ctx.fillText(`Score: ${state.score}`,16,28); }
-  function drawStart(){ drawSpace(); ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='800 28px ui-sans-serif'; ctx.fillText('Meteor Dash', W/2, H*0.38); ctx.font='500 16px ui-sans-serif'; ctx.fillText('Pick a ship & difficulty, then press Start', W/2, H*0.46); }
-  function drawGameOver(msg){
-    drawSpace();
-    ctx.fillStyle='#fff'; ctx.textAlign='center';
-    ctx.font='800 46px ui-sans-serif';
-    ctx.fillText('Game Over', W/2, H*0.40);
-    ctx.font='600 18px ui-sans-serif';
-    ctx.fillText(`Score: ${state.score}`, W/2, H*0.46);
-    if(msg){
-      ctx.font='500 16px ui-sans-serif';
-      ctx.fillText(msg, W/2, H*0.54);
-    }
-  }
 
-  // ------- Helpers -------
+  // ===== UI text =====
+  function drawHUD(){ drawTextOutlined(ctx, `Score: ${state.score}`, 16, 28, { size: 16, weight: 800, align:'left' }); }
+  function drawStart(){ drawSpace(); drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.38, { size: 28, weight: 800, align:'center' }); drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.46, { size: 16, weight: 700, align:'center' }); }
+  function drawGameOverWithMsg(msg){ drawSpace(); drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); }
+    drawTextOutlined(ctx, 'Press R or tap Start to Restart', W/2, H*0.62, { size: 14, weight: 600, align:'center' });
+    drawTextOutlined(ctx, 'Press R or tap Start to Restart', W/2, H*0.62, { size: 14, weight: 600, align:'center' }); }
+
+  // ===== Helpers =====
   function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
   function circleRectOverlap(c,r){ const cx=Math.max(r.x,Math.min(c.x,r.x+r.w)); const cy=Math.max(r.y,Math.min(c.y,r.y+r.h)); const dx=c.x-cx, dy=c.y-cy; return (dx*dx+dy*dy) <= (c.r*c.r); }
 
-  // ------- Spawning -------
+  // ===== Spawning =====
   function spawnObstacle(){ const w=28+Math.random()*42, h=w*(0.8+Math.random()*0.3); const x=Math.random()*(W-w), y=-h-10, vy=state.speed + Math.random()*2.0 + state.t*0.0003; state.obstacles.push({x,y,w,h,vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.05}); }
   function spawnCoin(){ const r=10+Math.random()*4, x=r+Math.random()*(W-r*2), y=-r-10, vy=state.speed+1; state.coins.push({x,y,r,vy}); }
 
-  // ------- Input -------
+  // ===== Input =====
   addEventListener('keydown', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true; if(e.key==='p'||e.key==='P') togglePause(); if(e.key==='r'||e.key==='R') if(!state.running) start(); });
   addEventListener('keyup', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false; });
+
+  function bindHold(btn, onDown, onUp){ const down=e=>{ e.preventDefault(); onDown(); }; const up=e=>{ e.preventDefault(); onUp(); }; if(!btn) return; btn.addEventListener('touchstart', down, {passive:false}); btn.addEventListener('touchend', up); btn.addEventListener('touchcancel', up); btn.addEventListener('mousedown', down); window.addEventListener('mouseup', up); }
+  bindHold(document.getElementById('btnLeft'),  ()=> state.input.left  = true, ()=> state.input.left  = false);
+  bindHold(document.getElementById('btnRight'), ()=> state.input.right = true, ()=> state.input.right = false);
+  window.addEventListener('touchmove', (e)=>{ if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault(); }, {passive:false});
 
   btnPause.addEventListener('click', ()=> togglePause());
   function togglePause(){ if(!state.running) return; state.paused = !state.paused; btnPause.textContent = state.paused ? 'Resume' : 'Pause'; if(!state.paused){ last=performance.now(); requestAnimationFrame(loop); } }
 
   btnStart.addEventListener('click', start);
+  if (bigStart) bigStart.addEventListener('click', ()=> btnStart.click());
 
   async function start(){
     // reset state
     state.running=true; state.paused=false; state.t=0; state.score=0;
-    state.speed = selectedDifficulty.speed;
-    state.spawnTimer=0; state.coinTimer=0;
+    state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0;
     state.obstacles.length=0; state.coins.length=0;
     const pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
     state.player.w=pw; state.player.h=pw; state.player.scale=1; state.player.vx=0; state.player.tilt=0;
     state.player.x=(W-pw)/2; state.player.y=H - pw*2.2;
     btnPause.disabled=false; btnStart.textContent='Restart';
+    if (titleOverlay) titleOverlay.style.display='none';
 
     // Start/resume music without restarting if already playing
     try{ ensureAudio(); if(ac.state==='suspended') await ac.resume(); ensureMusicGraph(); }catch(_){ }
@@ -334,7 +389,7 @@
     last=performance.now(); tone(700,0.08,'square',0.05); requestAnimationFrame(loop);
   }
 
-  // ------- Game loop -------
+  // ===== Loop =====
   let last = 0;
   function loop(now){
     if(!state.running || state.paused) return;
@@ -374,29 +429,24 @@
   function gameOver(){
     tone(160,0.25,'square',0.09);
     state.running=false; btnPause.disabled=true;
-    const funnyDeaths = [
-      "Oops… your insurance premium just skyrocketed!",
-      "Houston, we have a YOU problem.",
-      "That’ll buff right out. Probably.",
-      "Your ship’s warranty does not cover meteor damage.",
-      "Well, that escalated quickly.",
-      "Looks like you’ve joined the space debris club.",
-      "Next time, try steering!",
-      "Meteor 1, You 0.",
-      "The galaxy says: better luck next run!"
-    ];
     const msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
-    drawGameOver(msg);
+    drawGameOverWithMsg(msg);
+    // Bring back title overlay with Restart label
+    if (titleOverlay){ titleOverlay.style.display='flex'; const tbtn=document.getElementById('bigStart'); if(tbtn) tbtn.textContent='Restart'; }
   }
 
-  // ------- Kick off -------
+  // Kick off
   resize();
-  rebuildStars(true);
-  drawStart();
+  (function init(){
+    // difficulties setup must happen after default exists
+    const buttons = difficultySelect.querySelectorAll('button');
+    if(!buttons.length){ /* already created above */ }
+    rebuildStars(true); drawStart();
+  })();
 
-  // Music diagnostics
+  // Diagnostics (console)
   bgMusic?.addEventListener('canplaythrough', ()=> console.log('Music ready:', bgMusic.currentSrc));
-  bgMusic?.addEventListener('error', ()=> console.warn('Music failed to load. Ensure music.mp3 sits next to index.html. Case-sensitive.'));
+  bgMusic?.addEventListener('error', ()=> console.warn('Music failed to load. Ensure music.mp3 sits next to index.html (case-sensitive).'));
 })();
 </script>
 </body>
