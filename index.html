@@ -56,7 +56,7 @@
 </div>
 
 <!-- Background music (loops). Replace src with your own if desired. -->
-<audio id="bgMusic" loop preload="auto">
+<audio id="bgMusic" loop preload="auto" crossorigin="anonymous">
   <source src="music.mp3" type="audio/mpeg">
 </audio>
 
@@ -91,38 +91,71 @@
 
   // Background music + master volume
   const bgMusic = document.getElementById('bgMusic');
-  const btnEnableMusic = document.getElementById('btnEnableMusic');
-  
-  let masterVolume = parseFloat(volSlider.value)||0.4;
-  let muted = false;
-  function setVolume(v){
-    masterVolume = Math.max(0, Math.min(1, v));
-    if (bgMusic) bgMusic.volume = masterVolume;
-    volSlider.value = String(masterVolume);
-    volLabel.textContent = Math.round(masterVolume*100)+'%';
-  }
-  async function tryPlayMusic(){
-    if(!bgMusic) return;
-    try{
-      await bgMusic.play();
-      btnEnableMusic.style.display='none';
-    }catch(err){
-      // If autoplay is blocked or remote host prevents streaming, show manual enable
-      btnEnableMusic.style.display='inline-block';
+const MUSIC_CANDIDATES = [
+  'music.mp3',
+  './music.mp3'
+];
+function ensureMusicSources(){
+  if(!bgMusic) return;
+  const hasSource = bgMusic.querySelector('source');
+  if(!hasSource){
+    for(const p of MUSIC_CANDIDATES){
+      const s = document.createElement('source'); s.src=p; s.type='audio/mpeg'; bgMusic.appendChild(s);
     }
   }
-  setVolume(masterVolume);
+}
+ensureMusicSources();
+
+let masterVolume = parseFloat(volSlider.value)||0.4;
+let muted = false;
+function setVolume(v){
+  masterVolume = Math.max(0, Math.min(1, v));
+  if (bgMusic) bgMusic.volume = masterVolume;
+  volSlider.value = String(masterVolume);
+  volLabel.textContent = Math.round(masterVolume*100)+'%';
+}
+setVolume(masterVolume);
+volSlider.addEventListener('input', e=> setVolume(parseFloat(e.target.value)||masterVolume));
+
+// Music diagnostics
+if(bgMusic){
+  bgMusic.addEventListener('canplaythrough', ()=>{ console.log('Music ready:', bgMusic.currentSrc); });
+  bgMusic.addEventListener('error', ()=>{
+    const code = bgMusic.error && bgMusic.error.code; // 1=aborted,2=network,3=decode,4=src not supported
+    const msg = 'Music failed to load ('+code+'): '+ (bgMusic.currentSrc||'no src');
+    if(window.showErr) showErr(msg); else console.error(msg);
+  });
+}
+
   volSlider.addEventListener('input', e=> setVolume(parseFloat(e.target.value)||masterVolume));
 
   // Minimal synth SFX that respect master volume
   const AudioCtx = window.AudioContext||window.webkitAudioContext; let ac=null;
   function ensureAudio(){ if(!ac) ac = new AudioCtx(); }
-  function tone(freq=880, dur=0.09, type='sine', vol=0.05){ if(muted) return; ensureAudio(); const o=ac.createOscillator(); const g=ac.createGain(); o.type=type; o.frequency.value=freq; g.gain.value = vol * masterVolume; o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur); o.stop(ac.currentTime+dur); }
+  function tone(freq=880, dur=0.09, type='sine', vol=0.05){
+    if(muted) return;
+    try{
+      ensureAudio();
+      const o=ac.createOscillator(); const g=ac.createGain();
+      o.type=type; o.frequency.value=freq; g.gain.value = vol * masterVolume;
+      o.connect(g); g.connect(ac.destination); o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur);
+      o.stop(ac.currentTime+dur);
+    }catch(e){ if(window.showErr) showErr('Audio error: '+e); }
+  }
 
   btnMute.addEventListener('click',()=>{
     muted = !muted;
     btnMute.textContent = muted? '🔇' : '🔊';
     btnMute.setAttribute('aria-pressed', String(muted));
+    if(bgMusic){ if(muted) bgMusic.pause(); else tryPlayMusic(); }
+  });
+  // Try unlocking audio on first user gesture as well
+  ['click','keydown','touchstart'].forEach(evt=>{
+    window.addEventListener(evt, async ()=>{
+      try{ ensureAudio(); if(ac.state==='suspended') await ac.resume(); if(!muted && bgMusic && bgMusic.paused) await bgMusic.play(); }catch(_){/* ignore */}
+    }, {once:true, passive:true});
+  });
     if(bgMusic){ if(muted) bgMusic.pause(); else tryPlayMusic(); }
   });
   btnEnableMusic.addEventListener('click',()=>{ if(bgMusic){ tryPlayMusic(); }});
@@ -186,9 +219,12 @@
   btnPause.addEventListener('click',()=>togglePause());
 
   function togglePause(){ if(!state.running) return; state.paused=!state.paused; btnPause.textContent=state.paused? 'Resume':'Pause'; if(!state.paused){ last=performance.now(); requestAnimationFrame(loop); } }
-  function start(){
+  async function start(){
     reset(); state.running=true; btnPause.disabled=false; btnStart.textContent='Restart'; last=performance.now(); requestAnimationFrame(loop);
-    if(!muted && bgMusic){ bgMusic.currentTime=0; tryPlayMusic(); }
+    if(!muted && bgMusic){
+      try{ ensureAudio(); if(ac && ac.state==='suspended') await ac.resume(); }catch(_){/* ignore */}
+      bgMusic.currentTime=0; tryPlayMusic();
+    }
     tone(700,0.08,'square',0.05);
   }
 
