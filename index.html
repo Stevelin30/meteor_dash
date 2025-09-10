@@ -489,7 +489,7 @@
 
     // movement (crisp)
     const dir = (state.input.right?1:0) - (state.input.left?1:0);
-    const baseSpeed = Math.max(0.35, W*0.0018) * (10 + selectedDifficulty.speed*2);
+    const baseSpeed = Math.max(0.1, W*0.0006) * (2 + selectedDifficulty.speed*0.8);
     const dx = dir * baseSpeed * dt;
     state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + dx));
     state.player.vx = dx / Math.max(1, dt);
