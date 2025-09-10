@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Meteor Dash — Final Build</title>
+<title>Meteor Dash — Final Build (Crisp + Boost Trail)</title>
 <style>
   :root{ --bg:#0b1020; --fg:#e2e8f0; }
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; }
@@ -22,7 +22,7 @@
   #musicVolume{ width:110px; }
   #err{ position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#7f1d1d; color:#fff; padding:12px; border:2px solid #fecaca; border-radius:10px; font-family:ui-monospace,monospace; display:none; white-space:pre-wrap }
 
-  /* Title overlay (first load only) */
+  /* Title overlay */
   #titleOverlay{
     position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
     background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6));
@@ -37,15 +37,18 @@
   #titleOverlay p{ margin:0 0 14px; opacity:.9; }
   #bigStart{ font-size:18px; font-weight:800; padding:8px 16px; }
 
-  /* Touch controls */
+  /* Touch controls pinned to edges */
   #touchControls{
-    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
-    display:none; gap:16px; z-index:20;
+    position:fixed; bottom:18px; left:0; right:0;
+    display:none; z-index:20;
+    padding:0 40px; /* farther apart */
+    justify-content:space-between; align-items:center;
   }
   #touchControls button{
-    width:64px; height:64px; border-radius:9999px;
-    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.2);
-    color:#fff; font-size:26px; font-weight:800;
+    width:76px; height:76px; border-radius:9999px;
+    background:rgba(255,255,255,.08);
+    border:2px solid rgba(255,255,255,.25);
+    color:#fff; font-size:28px; font-weight:800;
   }
   #touchControls button:active{ transform:scale(0.97); }
   @media (pointer: coarse){
@@ -83,10 +86,10 @@
   </footer>
 </div>
 
-<!-- Title overlay (first load only) -->
+<!-- Title overlay -->
 <div id="titleOverlay">
   <div class="card">
-    <h1>stevelin30 productions <span style="font-size:16px;font-weight:600;opacity:.8">(v1.0)</span></h1>
+    <h1>stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span></h1>
     <p>Meteor Dash — Outrun the debris. Grab coins. Try not to explode.</p>
     <p><em>How to Play: Use ← → (A/D) or touch buttons to move. Collect coins, dodge meteors!</em></p>
     <button id="bigStart">Start</button>
@@ -287,9 +290,14 @@
     running:false, paused:false, t:0, score:0, speed:selectedDifficulty.speed,
     spawnTimer:0, coinTimer:0,
     player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1, shield:false},
-    obstacles:[], coins:[],
+    obstacles:[], coins:[], boosts:[],
     input:{left:false,right:false},
-    restartBtn:null
+    restartBtn:null,
+    boostTimer: 10000, // ms until next boost spawn
+    boostActive:false,
+    boostTime:0,
+    boostMultiplier:1,
+    trail:[]
   };
 
   // ===== Background stars =====
@@ -352,9 +360,54 @@
     ctx.lineWidth = 4; ctx.stroke();
     ctx.restore();
   }
+  function drawBoost(b){
+    ctx.save();
+    const r=b.r; const x=b.x, y=b.y;
+    const g=ctx.createRadialGradient(x,y,1,x,y,r);
+    g.addColorStop(0,'#a7f3d0'); g.addColorStop(1,'#22d3ee');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.shadowColor='#67e8f9'; ctx.shadowBlur=12; ctx.lineWidth=2; ctx.strokeStyle='rgba(34,211,238,0.8)'; ctx.stroke();
+    // bolt
+    ctx.fillStyle='#0ea5b7';
+    ctx.beginPath();
+    ctx.moveTo(x-2, y-r*0.6);
+    ctx.lineTo(x+3, y-2);
+    ctx.lineTo(x-4, y-1);
+    ctx.lineTo(x+2, y+r*0.6);
+    ctx.lineTo(x-3, y+2);
+    ctx.lineTo(x+4, y+1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ===== Trail (boost-only) =====
+  function addTrail(){
+    if(!state.boostActive) return;
+    const cx = state.player.x + state.player.w*0.5;
+    const cy = state.player.y + state.player.h*0.75; // tail-ish
+    state.trail.push({x:cx, y:cy, life:1});
+    if(state.trail.length>22) state.trail.shift();
+  }
+  function drawTrail(){
+    if(!state.trail.length) return;
+    ctx.save();
+    for(let i=1;i<state.trail.length;i++){
+      const a = state.trail[i-1], b = state.trail[i];
+      const t = i/state.trail.length;
+      const alpha = 0.08 + 0.6 * t * (state.boostActive?1:0.3);
+      ctx.strokeStyle = `rgba(103, 232, 249, ${alpha})`; // cyan
+      ctx.lineWidth = 6 * t;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   // ===== UI text =====
-  function drawHUD(){ drawTextOutlined(ctx, `Score: ${state.score}`, 16, 28, { size: 16, weight: 800, align:'left' }); }
+  function drawHUD(){
+    drawTextOutlined(ctx, `Score: ${state.score}`, 16, 28, { size: 16, weight: 800, align:'left' });
+    if(state.boostActive){ drawTextOutlined(ctx, 'BOOST!', W-16, 28, { size: 16, weight: 800, align:'right', fill:'#a7f3d0' }); }
+  }
   function drawStart(){
     drawSpace();
     drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.38, { size: 28, weight: 800, align:'center' });
@@ -362,35 +415,18 @@
   }
   function drawGameOverWithMsg(msg){
     drawSpace();
-    // flash ring at ship location (static glow)
-    if (state.lastCrashX != null){
-      ctx.save();
-      ctx.fillStyle = 'rgba(255,100,0,0.5)';
-      ctx.beginPath();
-      ctx.arc(state.lastCrashX, state.lastCrashY, 80, 0, Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-    }
     drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' });
     drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' });
     if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); }
-
-    // Canvas Restart button (glowing & pulsing)
-    const bx = W/2-70, by = H*0.65-22, bw = 140, bh = 44;
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bx, by, bw, bh);
-    // glow
+    const bx=W/2-70, by=H*0.65-22, bw=140, bh=44;
+    ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,bw,bh);
     ctx.save();
-    ctx.shadowColor = 'rgba(255,255,255,0.9)';
-    ctx.shadowBlur = 12;
-    const pulse = 0.5 + 0.5 * Math.sin(Date.now()/400);
-    ctx.strokeStyle = `rgba(255,255,255,${0.5+0.5*pulse})`;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(bx, by, bw, bh);
+    ctx.shadowColor='rgba(255,255,255,0.9)'; ctx.shadowBlur=12;
+    const pulse=0.5+0.5*Math.sin(Date.now()/400);
+    ctx.strokeStyle=`rgba(255,255,255,${0.5+0.5*pulse})`; ctx.lineWidth=3; ctx.strokeRect(bx,by,bw,bh);
     ctx.restore();
     drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' });
-
-    state.restartBtn = {x:bx, y:by, w:bw, h:bh};
-    // keep animating pulse while idle by scheduling a redraw
+    state.restartBtn={x:bx,y:by,w:bw,h:bh};
     if(!state.running) requestAnimationFrame(()=> drawGameOverWithMsg(msg));
   }
 
@@ -401,36 +437,16 @@
   // ===== Spawning =====
   function spawnObstacle(){ const w=28+Math.random()*42, h=w*(0.8+Math.random()*0.3); const x=Math.random()*(W-w), y=-h-10, vy=state.speed + Math.random()*2.0 + state.t*0.0003; state.obstacles.push({x,y,w,h,vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.05}); }
   function spawnCoin(){ const r=10+Math.random()*4, x=r+Math.random()*(W-r*2), y=-r-10, vy=state.speed+1; state.coins.push({x,y,r,vy}); }
+  function spawnBoost(){ const r=12, x=r+Math.random()*(W-r*2), y=-r-10, vy=state.speed+1.4; state.boosts.push({x,y,r,vy}); }
 
   // ===== Input =====
-  addEventListener('keydown', e=>{
-    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true;
-    if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true;
-    if(e.key==='p'||e.key==='P') togglePause();
-    if(e.key==='r'||e.key==='R') if(!state.running) start();
-  });
-  addEventListener('keyup', e=>{
-    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false;
-    if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false;
-  });
+  addEventListener('keydown', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true; if(e.key==='p'||e.key==='P') togglePause(); if(e.key==='r'||e.key==='R') if(!state.running) start(); });
+  addEventListener('keyup', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false; });
 
-  function bindHold(btn, onDown, onUp){
-    if(!btn) return;
-    const down = e=>{ e.preventDefault(); onDown(); };
-    const up   = e=>{ e.preventDefault(); onUp();   };
-    btn.addEventListener('touchstart', down, {passive:false});
-    btn.addEventListener('touchend',   up);
-    btn.addEventListener('touchcancel',up);
-    btn.addEventListener('mousedown',  down);
-    window.addEventListener('mouseup', up);
-  }
+  function bindHold(btn, onDown, onUp){ const down=e=>{ e.preventDefault(); onDown(); }; const up=e=>{ e.preventDefault(); onUp(); }; if(!btn) return; btn.addEventListener('touchstart', down, {passive:false}); btn.addEventListener('touchend', up); btn.addEventListener('touchcancel', up); btn.addEventListener('mousedown', down); window.addEventListener('mouseup', up); }
   bindHold(btnLeft,  ()=> state.input.left  = true, ()=> state.input.left  = false);
   bindHold(btnRight, ()=> state.input.right = true, ()=> state.input.right = false);
-
-  // Prevent page drag while touching controls
-  window.addEventListener('touchmove', (e)=>{
-    if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault();
-  }, {passive:false});
+  window.addEventListener('touchmove', (e)=>{ if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault(); }, {passive:false});
 
   btnPause.addEventListener('click', ()=> togglePause());
   function togglePause(){ if(!state.running) return; state.paused = !state.paused; btnPause.textContent = state.paused ? 'Resume' : 'Pause'; if(!state.paused){ last=performance.now(); requestAnimationFrame(loop); } }
@@ -438,20 +454,11 @@
   btnStart.addEventListener('click', start);
   if (bigStart) bigStart.addEventListener('click', ()=> btnStart.click());
 
-  canvas.addEventListener('click', function onRestartClick(e){
-    if(state.running) return;
-    if(!state.restartBtn) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX-rect.left), my=(e.clientY-rect.top);
-    const b = state.restartBtn;
-    if(mx>=b.x && mx<=b.x+b.w && my>=b.y && my<=b.y+b.h){ start(); }
-  });
-
   async function start(){
-    // reset state
     state.running=true; state.paused=false; state.t=0; state.score=0;
-    state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0;
-    state.obstacles.length=0; state.coins.length=0; state.restartBtn=null;
+    state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0; state.boostTimer=9000+Math.random()*4000;
+    state.obstacles.length=0; state.coins.length=0; state.boosts.length=0; state.restartBtn=null; state.trail.length=0;
+    state.boostActive=false; state.boostTime=0; state.boostMultiplier=1;
     state.lastCrashX=null; state.lastCrashY=null;
 
     const pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
@@ -460,7 +467,6 @@
     btnPause.disabled=false; btnStart.textContent='Restart';
     if (titleOverlay) titleOverlay.style.display='none';
 
-    // Start/resume music without restarting if already playing
     try{ ensureAudio(); if(ac.state==='suspended') await ac.resume(); ensureMusicGraph(); }catch(_){ }
     if(!muted && bgMusic){ if(bgMusic.paused){ tryPlayMusic(); fadeMusic(1,250); } }
 
@@ -473,46 +479,49 @@
     if(!state.running || state.paused) return;
     const dt=Math.min(33, now-last); last=now; state.t+=dt; state.speed += 0.00055*dt;
 
+    // handle boost timer
+    if(state.boostActive){ state.boostTime -= dt; if(state.boostTime<=0){ state.boostActive=false; state.boostMultiplier=1; } }
+
     // spawn
     state.spawnTimer -= dt; if(state.spawnTimer<=0){ state.spawnTimer=selectedDifficulty.spawn; spawnObstacle(); }
     state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin; spawnCoin(); }
+    state.boostTimer -= dt; if(state.boostTimer<=0){ state.boostTimer=9000+Math.random()*5000; spawnBoost(); }
 
-    // move
-    const accel=0.0025*dt;
-    if(state.input.left)  state.player.vx -= accel*dt;
-    if(state.input.right) state.player.vx += accel*dt;
-    state.player.vx *= 0.96;
-    state.player.x = Math.max(0, Math.min(W-state.player.w, state.player.x + state.player.vx));
+    // movement (crisp)
+    const dir = (state.input.right?1:0) - (state.input.left?1:0);
+    const baseSpeed = Math.max(0.35, W*0.0018) * (10 + selectedDifficulty.speed*2);
+    const dx = dir * baseSpeed * dt;
+    state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + dx));
+    state.player.vx = dx / Math.max(1, dt);
 
+    // entities motion
     for(const o of state.obstacles){ o.y+=o.vy; o.rot+=o.vr; }
     for(const c of state.coins) c.y+=c.vy;
+    for(const b of state.boosts) b.y+=b.vy;
 
     // cull
     state.obstacles = state.obstacles.filter(o=>o.y < H+60);
     state.coins     = state.coins.filter(c=>c.y < H+60);
+    state.boosts    = state.boosts.filter(b=>b.y < H+60);
 
     // collisions
-    for(const o of state.obstacles){
-      if(rectsOverlap(state.player,o)){
-        // store crash position for flash
-        state.lastCrashX = state.player.x + state.player.w/2;
-        state.lastCrashY = state.player.y + state.player.h/2;
-        gameOver(); return;
-      }
-    }
-    for(let i=state.coins.length-1;i>=0;i--){
-      const c=state.coins[i];
-      if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier); tone(1000,0.08,'triangle',0.06); }
-    }
+    if(!state.boostActive){ for(const o of state.obstacles){ if(rectsOverlap(state.player,o)){ gameOver(); return; } } }
+    for(let i=state.coins.length-1;i>=0;i--){ const c=state.coins[i]; if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); tone(1000,0.08,'triangle',0.06); } }
+    for(let i=state.boosts.length-1;i>=0;i--){ const b=state.boosts[i]; if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ state.boosts.splice(i,1); state.boostActive=true; state.boostTime=2500; state.boostMultiplier=2; tone(1400,0.12,'sawtooth',0.07); } }
 
-    // score tick
-    state.score += Math.floor(0.02*dt*selectedDifficulty.multiplier);
+    // score
+    state.score += Math.floor(0.02*dt*selectedDifficulty.multiplier*state.boostMultiplier);
     if(state.score>hi){ hi=state.score; try{ localStorage.setItem('meteorDash_hi', String(hi)); }catch(_){ } elHi.textContent = `Best: ${hi}`; }
+
+    // trail update
+    addTrail();
 
     // render
     drawSpace(); drawHUD();
     for(const o of state.obstacles) drawObstacle(o);
     for(const c of state.coins) drawCoin(c);
+    for(const b of state.boosts) drawBoost(b);
+    drawTrail();
     drawPlayer(state.player);
 
     elScore.textContent = `Score: ${state.score}`;
@@ -523,7 +532,19 @@
     tone(160,0.25,'square',0.09);
     state.running=false; btnPause.disabled=true;
     const msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
-    drawGameOverWithMsg(msg); // no overlay here; canvas handles restart
+    // crash flash
+    ctx.save(); ctx.fillStyle='rgba(255,100,0,0.5)'; ctx.beginPath(); ctx.arc(state.player.x+state.player.w/2, state.player.y+state.player.h/2, 80, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    drawGameOverWithMsg(msg);
+    // click to restart
+    canvas.addEventListener('click', onRestartClick);
+  }
+  function onRestartClick(e){
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX-rect.left), my=(e.clientY-rect.top);
+    if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){
+      canvas.removeEventListener('click', onRestartClick);
+      start();
+    }
   }
 
   // Kick off
