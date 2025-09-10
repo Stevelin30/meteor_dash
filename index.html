@@ -24,7 +24,7 @@
   #err{ position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#7f1d1d; color:#fff; padding:12px; border:2px solid #fecaca; border-radius:10px; font-family:ui-monospace,monospace; display:none; white-space:pre-wrap }
 
   /* Overlay (Shop/Settings/Summary/Start) */
-  #titleOverlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6)); z-index:15; }
+  #titleOverlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6)); z-index:50; }
   #titleOverlay.hidden{ display:none; }
   #titleOverlay .card{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:22px 24px; border-radius:16px; text-align:center; backdrop-filter:blur(2px); max-width:900px; width:calc(100% - 24px); }
   #titleOverlay h1{ margin:0 0 6px; font-size:30px; font-weight:900; }
@@ -46,6 +46,8 @@
   #touchControls button{ width:76px; height:76px; border-radius:9999px; background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.25); color:#fff; font-size:28px; font-weight:800; }
   #touchControls button:active{ transform:scale(0.97); }
   @media (pointer: coarse){ #touchControls{ display:flex; } header .controls > span { display:none; } }
+  /* Hide touch buttons while any overlay is visible so they don't block taps */
+  #titleOverlay:not(.hidden) ~ #touchControls{ display:none !important; }
 </style>
 </head>
 <body>
