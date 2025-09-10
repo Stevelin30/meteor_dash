@@ -286,7 +286,18 @@
   }
   function drawHUD(){ ctx.fillStyle='#fff'; ctx.font='600 16px ui-sans-serif,system-ui'; ctx.textAlign='left'; ctx.fillText(`Score: ${state.score}`,16,28); }
   function drawStart(){ drawSpace(); ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='800 28px ui-sans-serif'; ctx.fillText('Meteor Dash', W/2, H*0.38); ctx.font='500 16px ui-sans-serif'; ctx.fillText('Pick a ship & difficulty, then press Start', W/2, H*0.46); }
-  function drawGameOver(){ drawSpace(); ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='800 46px ui-sans-serif'; ctx.fillText('Game Over', W/2, H*0.40); ctx.font='600 18px ui-sans-serif'; ctx.fillText(`Score: ${state.score}`, W/2, H*0.46); }
+  function drawGameOver(msg){
+    drawSpace();
+    ctx.fillStyle='#fff'; ctx.textAlign='center';
+    ctx.font='800 46px ui-sans-serif';
+    ctx.fillText('Game Over', W/2, H*0.40);
+    ctx.font='600 18px ui-sans-serif';
+    ctx.fillText(`Score: ${state.score}`, W/2, H*0.46);
+    if(msg){
+      ctx.font='500 16px ui-sans-serif';
+      ctx.fillText(msg, W/2, H*0.54);
+    }
+  }
 
   // ------- Helpers -------
   function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
@@ -360,7 +371,23 @@
     requestAnimationFrame(loop);
   }
 
-  function gameOver(){ tone(160,0.25,'square',0.09); state.running=false; btnPause.disabled=true; drawGameOver(); }
+  function gameOver(){
+    tone(160,0.25,'square',0.09);
+    state.running=false; btnPause.disabled=true;
+    const funnyDeaths = [
+      "Oops… your insurance premium just skyrocketed!",
+      "Houston, we have a YOU problem.",
+      "That’ll buff right out. Probably.",
+      "Your ship’s warranty does not cover meteor damage.",
+      "Well, that escalated quickly.",
+      "Looks like you’ve joined the space debris club.",
+      "Next time, try steering!",
+      "Meteor 1, You 0.",
+      "The galaxy says: better luck next run!"
+    ];
+    const msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
+    drawGameOver(msg);
+  }
 
   // ------- Kick off -------
   resize();
