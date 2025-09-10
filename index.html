@@ -228,7 +228,19 @@
     btnBuyBoost.disabled  = nextCost('boost')==null  || totalCredits < nextCost('boost');
     elCredits.textContent = `Credits: ${totalCredits}`;
   }
-  function buy(name){ const cost=nextCost(name); if(cost==null) return; if(totalCredits<cost) return; totalCredits-=cost; upgrades[name]++; setLS('meteorDash_credits', totalCredits); setLS('meteorDash_upgrades', upgrades); refreshShop(); }
+  function buy(name){
+    const cost = nextCost(name);
+    // Guard rails + tiny feedback
+    if(cost == null){ tone(250,0.08,'sine',0.05); return; }
+    if(totalCredits < cost){ tone(220,0.08,'sine',0.05); return; }
+    totalCredits = Math.max(0, (totalCredits|0) - (cost|0));
+    upgrades[name] = (upgrades[name]|0) + 1;
+    setLS('meteorDash_credits', totalCredits);
+    setLS('meteorDash_upgrades', upgrades);
+    refreshShop();
+    // subtle confirm chirp
+    tone(980,0.06,'triangle',0.05);
+  }
   btnBuyMagnet.addEventListener('click', ()=> buy('magnet'));
   btnBuyShield.addEventListener('click', ()=> buy('shield'));
   btnBuyBoost .addEventListener('click', ()=> buy('boost'));
@@ -384,12 +396,14 @@
     state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin; spawnCoin(); }
     state.boostTimer -= dt; if(state.boostTimer<=0){ state.boostTimer=9000+Math.random()*5000; spawnBoost(); }
 
-    // movement (crisp + slowed)
+    // movement (smoothed but responsive)
     const dir = (state.input.right?1:0) - (state.input.left?1:0);
-    const baseSpeed = Math.max(0.1, W*0.0006) * (2 + selectedDifficulty.speed*0.8);
-    const dx = dir * baseSpeed * dt;
-    state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + dx));
-    state.player.vx = dx / Math.max(1, dt);
+    const baseSpeed = Math.max(0.1, W*0.0006) * (2 + selectedDifficulty.speed*0.8); // px/ms
+    const targetVx = dir * baseSpeed; // px/ms
+    // critically damped-ish smoothing: quick to respond, very little slide
+    state.player.vx += (targetVx - state.player.vx) * 0.22; // tune 0.15..0.35
+    if(dir===0 && Math.abs(state.player.vx) < 0.002) state.player.vx = 0;
+    state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + state.player.vx * dt));
 
     // entities motion
     for(const o of state.obstacles){ o.y+=o.vy; o.rot+=o.vr; }
