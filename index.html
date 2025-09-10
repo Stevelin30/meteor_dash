@@ -1,12 +1,9 @@
-You’re getting that error because `togglePause()` is referenced several times but never defined. I added a proper `togglePause()` that pauses/resumes the loop, updates the Pause button label, and coordinates the overlay + music. Here’s your fixed file (drop-in replacement):
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Meteor Dash — Final Build (Upgrades + Boosts + Shop + Summary + Settings + Drag)</title>
+<title>Meteor Dash — Stable Final (Difficulty Speeds + Shop + Settings)</title>
 <style>
   :root{ --bg:#0b1020; --fg:#e2e8f0; }
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; }
@@ -26,10 +23,10 @@ You’re getting that error because `togglePause()` is referenced several times 
   #musicVolume{ width:110px; }
   #err{ position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#7f1d1d; color:#fff; padding:12px; border:2px solid #fecaca; border-radius:10px; font-family:ui-monospace,monospace; display:none; white-space:pre-wrap }
 
-  /* Title/Shop/Settings/Summary overlay */
-  #titleOverlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6)); z-index:15; }
+  /* Overlay (Shop/Settings/Summary/Start) */
+  #titleOverlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6)); z-index:50; }
   #titleOverlay.hidden{ display:none; }
-  #titleOverlay .card{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:22px 24px; border-radius:16px; text-align:center; backdrop-filter:blur(2px); max-width:760px; width:calc(100% - 24px); }
+  #titleOverlay .card{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:22px 24px; border-radius:16px; text-align:center; backdrop-filter:blur(2px); max-width:900px; width:calc(100% - 24px); }
   #titleOverlay h1{ margin:0 0 6px; font-size:30px; font-weight:900; }
   #titleOverlay p{ margin:0 8px 12px; opacity:.9; }
   #bigStart{ font-size:18px; font-weight:800; padding:8px 16px; }
@@ -42,13 +39,15 @@ You’re getting that error because `togglePause()` is referenced several times 
   .muted{ opacity:.8 }
   .pill{ display:inline-block; padding:2px 8px; border-radius:9999px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); font-size:12px; }
   .overlay-sections{ display:grid; grid-template-columns:1fr; gap:12px; }
-  @media (min-width: 820px){ .overlay-sections{ grid-template-columns:1fr 1fr; } }
+  @media (min-width: 860px){ .overlay-sections{ grid-template-columns:1fr 1fr; } }
 
-  /* Touch controls pinned to edges */
+  /* Touch controls */
   #touchControls{ position:fixed; bottom:18px; left:0; right:0; display:none; z-index:20; padding:0 40px; justify-content:space-between; align-items:center; }
   #touchControls button{ width:76px; height:76px; border-radius:9999px; background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.25); color:#fff; font-size:28px; font-weight:800; }
   #touchControls button:active{ transform:scale(0.97); }
   @media (pointer: coarse){ #touchControls{ display:flex; } header .controls > span { display:none; } }
+  /* Hide touch buttons while any overlay is visible */
+  #titleOverlay:not(.hidden) ~ #touchControls{ display:none !important; }
 </style>
 </head>
 <body>
@@ -57,7 +56,7 @@ You’re getting that error because `togglePause()` is referenced several times 
     <div class="controls">
       <span id="scoreLabel">Score: 0</span>
       <span id="hiLabel">Best: 0</span>
-      <span id="creditsLabel" class="pill" title="Lifetime credits">Credits: 0</span>
+      <span id="creditsLabel" class="pill">Credits: 0</span>
       <button id="btnStart">Start</button>
       <button id="btnPause" disabled>Pause</button>
       <button id="btnShop" disabled>Shop</button>
@@ -79,7 +78,7 @@ You’re getting that error because `togglePause()` is referenced several times 
   <footer>
     <span>© stevelin30 productions · v1.0</span>
     <span>Move: ← → or A/D · Drag/Touch available</span>
-    <span>Pause: P · Restart: R</span>
+    <span>Pause: P/Esc · Restart: R</span>
   </footer>
 </div>
 
@@ -129,30 +128,31 @@ You’re getting that error because `togglePause()` is referenced several times 
         <p class="muted">Credits are earned by collecting coins during runs. Spend them here!</p>
       </div>
 
-      <!-- Settings -->
-      <div class="shop" id="settingsPanel">
-        <h3>Settings</h3>
-        <div class="row">
-          <div class="info">
-            <strong>Mouse / Finger Drag</strong>
-            <small>Drag on the canvas to move the ship.</small>
+      <!-- Settings + Summary -->
+      <div>
+        <div class="shop" id="settingsPanel">
+          <h3>Settings</h3>
+          <div class="row">
+            <div class="info">
+              <strong>Mouse / Finger Drag</strong>
+              <small>Drag on the canvas to move the ship.</small>
+            </div>
+            <label style="display:flex; align-items:center; gap:6px;">
+              <input type="checkbox" id="chkDrag" /> Enable
+            </label>
           </div>
-          <label style="display:flex; align-items:center; gap:6px;">
-            <input type="checkbox" id="chkDrag" /> Enable
-          </label>
-        </div>
-        <div class="row">
-          <div class="info">
-            <strong>Touch Buttons</strong>
-            <small>Show on-screen left/right buttons on mobile.</small>
+          <div class="row">
+            <div class="info">
+              <strong>Touch Buttons</strong>
+              <small>Show on-screen left/right buttons on mobile.</small>
+            </div>
+            <label style="display:flex; align-items:center; gap:6px;">
+              <input type="checkbox" id="chkTouchBtns" /> Show
+            </label>
           </div>
-          <label style="display:flex; align-items:center; gap:6px;">
-            <input type="checkbox" id="chkTouchBtns" /> Show
-          </label>
+          <p class="muted">Keyboard: <b>Arrows</b> and <b>A/D</b> both work.</p>
         </div>
-        <p class="muted">Keyboard: <b>Arrows</b> and <b>A/D</b> both work.</p>
 
-        <!-- Summary inside overlay -->
         <div class="shop" id="summaryPanel" style="display:none; margin-top:12px;">
           <h3>Run Summary</h3>
           <div class="row"><div class="info"><strong>Score</strong><small id="sumScore">0</small></div><div></div></div>
@@ -187,21 +187,20 @@ You’re getting that error because `togglePause()` is referenced several times 
 <script>
 (function(){
   // ===== Error overlay =====
-  const errBox = document.getElementById('err');
-  function showErr(msg){ errBox.style.display='block'; errBox.textContent=msg; console.error(msg); }
-  window.onerror = (m,src,l,c,e)=> showErr(`JS Error: ${m}\n${src}:${l}:${c}${e&&e.stack?'\n'+e.stack:''}`);
-  window.addEventListener('unhandledrejection', e=> showErr('Promise rejection: '+e.reason));
+  var errBox = document.getElementById('err');
+  function showErr(msg){ errBox.style.display='block'; errBox.textContent=msg; try{ console.error(msg);}catch(_){} }
+  window.onerror = function(m,src,l,c,e){ showErr('JS Error: '+m+'\n'+src+':'+l+':'+c+(e&&e.stack?'\n'+e.stack:'')); };
+  window.addEventListener('unhandledrejection', function(e){ showErr('Promise rejection: '+e.reason); });
 
   // ===== Canvas & sizing =====
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
-  let W=0, H=0;
-
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  var W=0, H=0;
   function resize(){
     try{
-      const hH = document.querySelector('header').offsetHeight||0;
-      const fH = document.querySelector('footer').offsetHeight||0;
+      var hH = document.querySelector('header').offsetHeight||0;
+      var fH = document.querySelector('footer').offsetHeight||0;
       W = Math.floor(window.innerWidth);
       H = Math.floor(window.innerHeight - hH - fH);
       if(H<120) H=120;
@@ -215,74 +214,68 @@ You’re getting that error because `togglePause()` is referenced several times 
   }
   addEventListener('resize', resize, {passive:true});
 
-  // ===== UI =====
-  const elScore = document.getElementById('scoreLabel');
-  const elHi = document.getElementById('hiLabel');
-  const elCredits = document.getElementById('creditsLabel');
-  const btnStart = document.getElementById('btnStart');
-  const btnPause = document.getElementById('btnPause');
-  const btnShop  = document.getElementById('btnShop');
-  const btnSettings  = document.getElementById('btnSettings');
-  const btnMute = document.getElementById('btnMute');
-  const volSlider = document.getElementById('musicVolume');
-  const volLabel = document.getElementById('volLabel');
-  const shipSelect = document.getElementById('shipSelect');
-  const difficultySelect = document.getElementById('difficultySelect');
+  // ===== UI refs =====
+  var elScore = document.getElementById('scoreLabel');
+  var elHi = document.getElementById('hiLabel');
+  var elCredits = document.getElementById('creditsLabel');
+  var btnStart = document.getElementById('btnStart');
+  var btnPause = document.getElementById('btnPause');
+  var btnShop  = document.getElementById('btnShop');
+  var btnSettings  = document.getElementById('btnSettings');
+  var btnMute = document.getElementById('btnMute');
+  var volSlider = document.getElementById('musicVolume');
+  var volLabel = document.getElementById('volLabel');
+  var shipSelect = document.getElementById('shipSelect');
+  var difficultySelect = document.getElementById('difficultySelect');
 
-  const titleOverlay = document.getElementById('titleOverlay');
-  const overlayTitle = document.getElementById('overlayTitle');
-  const overlaySubtitle = document.getElementById('overlaySubtitle');
-  const overlayHowTo = document.getElementById('overlayHowTo');
-  const bigStart = document.getElementById('bigStart');
-  const btnCloseShop = document.getElementById('btnCloseShop');
-  const settingsPanel = document.getElementById('settingsPanel');
-  const summaryPanel = document.getElementById('summaryPanel');
-  const chkDrag = document.getElementById('chkDrag');
-  const chkTouchBtns = document.getElementById('chkTouchBtns');
-  const sumScore = document.getElementById('sumScore');
-  const sumCoins = document.getElementById('sumCoins');
-  const sumCredits = document.getElementById('sumCredits');
-  const sumBoosts = document.getElementById('sumBoosts');
-  const sumFunny = document.getElementById('sumFunny');
-
-  const btnLeft = document.getElementById('btnLeft');
-  const btnRight = document.getElementById('btnRight');
+  var titleOverlay = document.getElementById('titleOverlay');
+  var overlayTitle = document.getElementById('overlayTitle');
+  var overlaySubtitle = document.getElementById('overlaySubtitle');
+  var overlayHowTo = document.getElementById('overlayHowTo');
+  var bigStart = document.getElementById('bigStart');
+  var btnCloseShop = document.getElementById('btnCloseShop');
+  var settingsPanel = document.getElementById('settingsPanel');
+  var summaryPanel = document.getElementById('summaryPanel');
+  var chkDrag = document.getElementById('chkDrag');
+  var chkTouchBtns = document.getElementById('chkTouchBtns');
+  var sumScore = document.getElementById('sumScore');
+  var sumCoins = document.getElementById('sumCoins');
+  var sumCredits = document.getElementById('sumCredits');
+  var sumBoosts = document.getElementById('sumBoosts');
+  var sumFunny = document.getElementById('sumFunny');
+  var btnLeft = document.getElementById('btnLeft');
+  var btnRight = document.getElementById('btnRight');
 
   // ===== Persistence =====
-  function getLS(key, def){ try{ const v=localStorage.getItem(key); return v==null?def:JSON.parse(v); }catch(_){ return def; } }
+  function getLS(key, def){ try{ var v=localStorage.getItem(key); return v==null?def:JSON.parse(v); }catch(_){ return def; } }
   function setLS(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){ } }
-
-  let hi = getLS('meteorDash_hi', 0);
-  let totalCredits = getLS('meteorDash_credits', 0);
-  const upgrades = getLS('meteorDash_upgrades', { magnet:0, shield:0, boost:0, coin:0 });
-  let settings = getLS('meteorDash_settings', { drag:true, showTouch:true });
-  elHi.textContent = `Best: ${hi}`;
-  elCredits.textContent = `Credits: ${totalCredits}`;
+  var hi = getLS('meteorDash_hi', 0);
+  var totalCredits = getLS('meteorDash_credits', 0);
+  var upgrades = getLS('meteorDash_upgrades', { magnet:0, shield:0, boost:0, coin:0 });
+  var settings = getLS('meteorDash_settings', { drag:true, showTouch:true });
+  elHi.textContent = 'Best: '+hi;
+  elCredits.textContent = 'Credits: '+totalCredits;
 
   function saveSettings(){ setLS('meteorDash_settings', settings); }
   function applySettingsUI(){ chkDrag.checked = !!settings.drag; chkTouchBtns.checked = !!settings.showTouch; updateTouchButtonsVisibility(); }
-  function updateTouchButtonsVisibility(){ const tc = document.getElementById('touchControls'); tc.style.display = settings.showTouch ? '' : 'none'; }
+  function updateTouchButtonsVisibility(){ var tc = document.getElementById('touchControls'); tc.style.display = settings.showTouch ? '' : 'none'; }
 
-  const upgradeCosts = {
-    magnet:[5,10,20],
-    shield:[5,15,30],
-    boost:[5,20,40],
-    coin:[10,25,60]
-  };
-  function nextCost(name){ const lvl=upgrades[name]; const arr=upgradeCosts[name]; return lvl>=arr.length? null : arr[lvl]; }
+  // ===== Upgrades =====
+  var upgradeCosts = { magnet:[5,10,20], shield:[5,15,30], boost:[5,20,40], coin:[10,25,60] };
+  function nextCost(name){ var lvl=upgrades[name]; var arr=upgradeCosts[name]; return lvl>=arr.length? null : arr[lvl]; }
   function refreshShop(){
-    document.getElementById('lvlMagnet').textContent = upgrades.magnet; document.getElementById('costMagnet').textContent = nextCost('magnet')??'MAX';
-    document.getElementById('lvlShield').textContent = upgrades.shield; document.getElementById('costShield').textContent = nextCost('shield')??'MAX';
-    document.getElementById('lvlBoost').textContent  = upgrades.boost;  document.getElementById('costBoost').textContent  = nextCost('boost')??'MAX';
-    document.getElementById('lvlCoin').textContent   = upgrades.coin;   document.getElementById('costCoin').textContent   = nextCost('coin')??'MAX';
+    document.getElementById('lvlMagnet').textContent = upgrades.magnet; document.getElementById('costMagnet').textContent = nextCost('magnet')==null?'MAX':nextCost('magnet');
+    document.getElementById('lvlShield').textContent = upgrades.shield; document.getElementById('costShield').textContent = nextCost('shield')==null?'MAX':nextCost('shield');
+    document.getElementById('lvlBoost').textContent  = upgrades.boost;  document.getElementById('costBoost').textContent  = nextCost('boost')==null?'MAX':nextCost('boost');
+    document.getElementById('lvlCoin').textContent   = upgrades.coin;   document.getElementById('costCoin').textContent   = nextCost('coin')==null?'MAX':nextCost('coin');
     document.getElementById('btnBuyMagnet').disabled = nextCost('magnet')==null || totalCredits < nextCost('magnet');
     document.getElementById('btnBuyShield').disabled = nextCost('shield')==null || totalCredits < nextCost('shield');
     document.getElementById('btnBuyBoost').disabled  = nextCost('boost')==null  || totalCredits < nextCost('boost');
     document.getElementById('btnBuyCoin').disabled   = nextCost('coin')==null   || totalCredits < nextCost('coin');
-    elCredits.textContent = `Credits: ${totalCredits}`;
+    elCredits.textContent = 'Credits: '+totalCredits;
   }
   function buy(name){
-    const cost = nextCost(name);
+    var cost = nextCost(name);
     if(cost==null){ tone(250,0.08,'sine',0.05); return; }
     if(totalCredits < cost){ tone(220,0.08,'sine',0.05); return; }
     totalCredits = Math.max(0, (totalCredits|0) - (cost|0));
@@ -292,48 +285,65 @@ You’re getting that error because `togglePause()` is referenced several times 
     refreshShop();
     tone(980,0.06,'triangle',0.05);
   }
-  document.getElementById('btnBuyMagnet').addEventListener('click', ()=> buy('magnet'));
-  document.getElementById('btnBuyShield').addEventListener('click', ()=> buy('shield'));
-  document.getElementById('btnBuyBoost') .addEventListener('click', ()=> buy('boost'));
-  document.getElementById('btnBuyCoin')  .addEventListener('click', ()=> buy('coin'));
+  document.getElementById('btnBuyMagnet').addEventListener('click', function(){ buy('magnet'); });
+  document.getElementById('btnBuyShield').addEventListener('click', function(){ buy('shield'); });
+  document.getElementById('btnBuyBoost') .addEventListener('click', function(){ buy('boost'); });
+  document.getElementById('btnBuyCoin')  .addEventListener('click', function(){ buy('coin'); });
   refreshShop();
 
-  // ===== Text helpers (bold + outline) =====
-  function setBoldFont(size=16, weight=800){ return `${weight} ${size}px ui-sans-serif,system-ui`; }
-  function drawTextOutlined(ctx, text, x, y, { size = 16, weight = 800, align = 'left', baseline = 'alphabetic', fill = '#ffffff', outline = 'rgba(0,0,0,0.85)', outlineWidth = 4 } = {}){
+  // ===== Text helpers =====
+  function setBoldFont(size, weight){ if(size==null) size=16; if(weight==null) weight=800; return weight+' '+size+'px ui-sans-serif,system-ui'; }
+  function drawTextOutlined(ctx, text, x, y, opts){
+    opts = opts||{};
+    var size=opts.size==null?16:opts.size, weight=opts.weight==null?800:opts.weight, align=opts.align||'left', baseline=opts.baseline||'alphabetic', fill=opts.fill||'#ffffff', outline=opts.outline||'rgba(0,0,0,0.85)', outlineWidth=opts.outlineWidth==null?4:opts.outlineWidth;
     ctx.save(); ctx.font = setBoldFont(size, weight); ctx.textAlign = align; ctx.textBaseline = baseline; ctx.lineJoin = 'round'; ctx.miterLimit = 2; ctx.strokeStyle = outline; ctx.lineWidth = outlineWidth; ctx.strokeText(text, x, y); ctx.fillStyle = fill; ctx.fillText(text, x, y); ctx.restore();
   }
 
-  // ===== Audio (looping + fade) =====
-  const bgMusic = document.getElementById('bgMusic');
-  const AudioCtx = window.AudioContext||window.webkitAudioContext;
-  let ac = null, muted = false, masterVolume = parseFloat(volSlider.value)||0.4;
-  let musicSource = null, musicGain = null;
+  // ===== Audio =====
+  var bgMusic = document.getElementById('bgMusic');
+  var AudioCtx = window.AudioContext||window.webkitAudioContext;
+  var ac = null, muted = false, masterVolume = parseFloat(volSlider.value)||0.4;
+  var musicSource = null, musicGain = null;
   function ensureAudio(){ if(!ac) ac = new AudioCtx(); }
-  function ensureMusicGraph(){ try{ ensureAudio(); if(!bgMusic) return; if(!musicSource){ musicSource = ac.createMediaElementSource(bgMusic); musicGain = ac.createGain(); musicGain.gain.value = masterVolume; musicSource.connect(musicGain); musicGain.connect(ac.destination); bgMusic.volume = 1.0; } }catch(e){ /* ignore double-connect */ } }
+  function ensureMusicGraph(){ try{ ensureAudio(); if(!bgMusic) return; if(!musicSource){ musicSource = ac.createMediaElementSource(bgMusic); musicGain = ac.createGain(); musicGain.gain.value = masterVolume; musicSource.connect(musicGain); musicGain.connect(ac.destination); bgMusic.volume = 1.0; } }catch(e){ /* ignore */ } }
   function setVolume(v){ masterVolume = Math.max(0, Math.min(1, v)); if(musicGain){ musicGain.gain.value = masterVolume; } else if(bgMusic){ bgMusic.volume = masterVolume; } volSlider.value = String(masterVolume); volLabel.textContent = Math.round(masterVolume*100)+'%'; }
   setVolume(masterVolume);
-  volSlider.addEventListener('input', e=> setVolume(parseFloat(e.target.value)||masterVolume));
-  async function tryPlayMusic(){ if(!bgMusic) return; try{ ensureAudio(); ensureMusicGraph(); await bgMusic.play(); } catch(e){ } }
-  function fadeMusic(to=1, ms=250){ if(musicGain && ac){ const now = ac.currentTime; const current = musicGain.gain.value; const target = Math.max(0,to)*masterVolume; musicGain.gain.setValueAtTime(current, now); musicGain.gain.linearRampToValueAtTime(target, now + ms/1000); } else if(bgMusic){ const start = bgMusic.volume; const target = Math.max(0,to); const steps = 12; const step=(target-start)/steps; let i=0; const id=setInterval(()=>{ i++; bgMusic.volume=Math.max(0,Math.min(1,start+step*i)); if(i>=steps) clearInterval(id); }, Math.max(16, ms/steps)); } }
-  function tone(freq=880, dur=0.09, type='sine', vol=0.05){ if(muted) return; try{ ensureAudio(); const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=vol*masterVolume; o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur); o.stop(ac.currentTime+dur); } catch(e){ showErr('Audio error: '+e); } }
-  btnMute.addEventListener('click', ()=>{ muted = !muted; btnMute.textContent = muted ? '🔇' : '🔊'; btnMute.setAttribute('aria-pressed', String(muted)); if(bgMusic){ if(muted){ fadeMusic(0,250); setTimeout(()=>bgMusic.pause(),260); } else { tryPlayMusic(); fadeMusic(1,250); } } });
-  ;['click','keydown','touchstart'].forEach(evt=>{ window.addEventListener(evt, async ()=>{ try{ ensureAudio(); if(ac.state==='suspended') await ac.resume(); ensureMusicGraph(); if(!muted && bgMusic && bgMusic.paused){ await bgMusic.play(); fadeMusic(1,200); } }catch(_){ } }, {once:true, passive:true}); });
+  volSlider.addEventListener('input', function(e){ setVolume(parseFloat(e.target.value)||masterVolume); });
+  function tryPlayMusic(){ if(!bgMusic) return; try{ ensureAudio(); ensureMusicGraph(); var p=bgMusic.play(); if(p&&p.catch) p.catch(function(){}); } catch(e){} }
+  function fadeMusic(to, ms){ if(to==null) to=1; if(ms==null) ms=250; if(musicGain && ac){ var now=ac.currentTime; var current=musicGain.gain.value; var target=Math.max(0,to)*masterVolume; musicGain.gain.setValueAtTime(current, now); musicGain.gain.linearRampToValueAtTime(target, now+ms/1000); } else if(bgMusic){ var start=bgMusic.volume; var target2=Math.max(0,to); var steps=12; var step=(target2-start)/steps; var i=0; var id=setInterval(function(){ i++; bgMusic.volume=Math.max(0,Math.min(1,start+step*i)); if(i>=steps) clearInterval(id); }, Math.max(16, ms/steps)); } }
+  function tone(freq, dur, type, vol){ if(freq==null) freq=880; if(dur==null) dur=0.09; if(type==null) type='sine'; if(vol==null) vol=0.05; if(muted) return; try{ ensureAudio(); var o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=vol*masterVolume; o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur); o.stop(ac.currentTime+dur); }catch(e){ showErr('Audio error: '+e); } }
+  btnMute.addEventListener('click', function(){ muted = !muted; btnMute.textContent = muted ? '🔇' : '🔊'; btnMute.setAttribute('aria-pressed', String(muted)); if(bgMusic){ if(muted){ fadeMusic(0,250); setTimeout(function(){ bgMusic.pause(); },260); } else { tryPlayMusic(); fadeMusic(1,250); } } });
+  ;['click','keydown','touchstart'].forEach(function(evt){ window.addEventListener(evt, function(){ try{ ensureAudio(); if(ac.state==='suspended') ac.resume(); ensureMusicGraph(); if(!muted && bgMusic && bgMusic.paused){ bgMusic.play(); fadeMusic(1,200); } }catch(_){ } }, {once:true, passive:true}); });
 
   // ===== Ships & Difficulty =====
-  const ships = [ {name:'Red', color1:'#f87171', color2:'#ef4444'}, {name:'Blue', color1:'#60a5fa', color2:'#2563eb'}, {name:'Green', color1:'#34d399', color2:'#059669'}, {name:'Purple', color1:'#c084fc', color2:'#7c3aed'} ];
-  let selectedShip = ships[0];
-  ships.forEach((s,i)=>{ const d=document.createElement('div'); d.className='ship-option'+(i===0?' selected':''); d.style.background=`linear-gradient(${s.color1},${s.color2})`; d.title=s.name; d.addEventListener('click', ()=>{ document.querySelectorAll('.ship-option').forEach(el=>el.classList.remove('selected')); d.classList.add('selected'); selectedShip=s; drawStart(); }); shipSelect.appendChild(d); });
+  var ships = [ {name:'Red', color1:'#f87171', color2:'#ef4444'}, {name:'Blue', color1:'#60a5fa', color2:'#2563eb'}, {name:'Green', color1:'#34d399', color2:'#059669'}, {name:'Purple', color1:'#c084fc', color2:'#7c3aed'} ];
+  var selectedShip = ships[0];
+  ships.forEach(function(s,i){ var d=document.createElement('div'); d.className='ship-option'+(i===0?' selected':''); d.style.background='linear-gradient('+s.color1+','+s.color2+')'; d.title=s.name; d.addEventListener('click', function(){ var all=document.querySelectorAll('.ship-option'); for(var k=0;k<all.length;k++) all[k].classList.remove('selected'); d.classList.add('selected'); selectedShip=s; drawStart(); }); shipSelect.appendChild(d); });
 
-  const difficulties = [ {name:'Easy', speed:1.6, spawn:520, coin:650, multiplier:1.0, starDensity:0.18, palette:['#0b1020','#0e1633'], parallax:[0.1,0.25,0.5]}, {name:'Normal', speed:2.3, spawn:400, coin:900, multiplier:1.0, starDensity:0.22, palette:['#0b1020','#12183b'], parallax:[0.15,0.35,0.7]}, {name:'Hard', speed:3.1, spawn:300, coin:1250, multiplier:1.2, starDensity:0.26, palette:['#0a0c24','#0f1640'], parallax:[0.2,0.5,0.9]}, {name:'Insane', speed:4.2, spawn:200, coin:2100, multiplier:1.5, starDensity:0.32, palette:['#120a20','#2a0e3c'], parallax:[0.28,0.7,1.2]} ];
-  let selectedDifficulty = difficulties[1];
-  difficulties.forEach((d,i)=>{ const b=document.createElement('button'); b.className='difficulty-btn'+(i===1?' selected':''); b.textContent=d.name; b.addEventListener('click', ()=>{ document.querySelectorAll('.difficulty-btn').forEach(el=>el.classList.remove('selected')); b.classList.add('selected'); selectedDifficulty=d; rebuildStars(true); drawStart(); }); difficultySelect.appendChild(b); });
+  var difficulties = [
+    {name:'Easy',   speed:1.6, spawn:520, coin:650,  multiplier:1.0, starDensity:0.18, palette:['#0b1020','#0e1633'], parallax:[0.1,0.25,0.5], meteorMul:0.9,  dropMul:0.9},
+    {name:'Normal', speed:2.3, spawn:400, coin:900,  multiplier:1.0, starDensity:0.22, palette:['#0b1020','#12183b'], parallax:[0.15,0.35,0.7], meteorMul:1.0,  dropMul:1.0},
+    {name:'Hard',   speed:3.1, spawn:300, coin:1250, multiplier:1.2, starDensity:0.26, palette:['#0a0c24','#0f1640'], parallax:[0.2,0.5,0.9],  meteorMul:1.25, dropMul:1.15},
+    {name:'Insane', speed:4.2, spawn:200, coin:2100, multiplier:1.5, starDensity:0.32, palette:['#120a20','#2a0e3c'], parallax:[0.28,0.7,1.2], meteorMul:1.55, dropMul:1.35}
+  ];
+  var selectedDifficulty = difficulties[1];
+  difficulties.forEach(function(d,i){ var b=document.createElement('button'); b.className='difficulty-btn'+(i===1?' selected':''); b.textContent=d.name; b.addEventListener('click', function(){ var all=document.querySelectorAll('.difficulty-btn'); for(var k=0;k<all.length;k++) all[k].classList.remove('selected'); b.classList.add('selected'); selectedDifficulty=d; rebuildStars(true); drawStart(); }); difficultySelect.appendChild(b); });
 
-  // ===== Comedic Game Over lines =====
-  const funnyDeaths = [ "Oops… your insurance premium just skyrocketed!", "Houston, we have a YOU problem.", "That’ll buff right out. Probably.", "Your ship’s warranty does not cover meteor damage.", "Well, that escalated quickly.", "Looks like you’ve joined the space debris club.", "Next time, try steering!", "Meteor 1, You 0.", "The galaxy says: better luck next run!" ];
+  // ===== Comedic lines =====
+  var funnyDeaths = [
+    "Oops… your insurance premium just skyrocketed!",
+    "Houston, we have a YOU problem.",
+    "That’ll buff right out. Probably.",
+    "Your ship’s warranty does not cover meteor damage.",
+    "Well, that escalated quickly.",
+    "Looks like you’ve joined the space debris club.",
+    "Next time, try steering!",
+    "Meteor 1, You 0.",
+    "The galaxy says: better luck next run!"
+  ];
 
-  // ===== Game State =====
-  const state = {
+  // ===== State =====
+  var state = {
     running:false, paused:false, t:0, score:0, speed:selectedDifficulty.speed,
     spawnTimer:0, coinTimer:0,
     player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1},
@@ -343,12 +353,14 @@ You’re getting that error because `togglePause()` is referenced several times 
     boostTimer: 10000, boostActive:false, boostTime:0, boostMultiplier:1,
     trail:[],
     shieldCharges: 0,
-    grace: 0 // invulnerability ms after hit
+    grace: 0
   };
-  let runStats = { coins:0, credits:0, boosts:0, startTime:0, endTime:0 };
+  var runStats = { coins:0, credits:0, boosts:0, startTime:0, endTime:0 };
+  var overlayMode = 'start';
 
   // ===== Overlay helpers =====
-  function showOverlay(mode='start', data={}){
+  function showOverlay(mode, data){
+    if(mode==null) mode='start'; data=data||{}; overlayMode=mode;
     settingsPanel.style.display = '';
     summaryPanel.style.display = 'none';
     if(mode==='start'){
@@ -361,7 +373,7 @@ You’re getting that error because `togglePause()` is referenced several times 
       overlayTitle.textContent = 'Upgrade Shop';
       overlaySubtitle.textContent = 'Spend credits to power up. Upgrades persist across runs.';
       overlayHowTo.style.display = 'none';
-      bigStart.textContent = 'Resume';
+      bigStart.textContent = state.running ? 'Resume' : 'Start';
       btnCloseShop.style.display = '';
     } else if(mode==='settings'){
       overlayTitle.textContent = 'Settings';
@@ -389,73 +401,87 @@ You’re getting that error because `togglePause()` is referenced several times 
   }
   function hideOverlay(){ titleOverlay.classList.add('hidden'); }
 
-  // ===== Background stars =====
-  let starsFG=[], starsMG=[], starsBG=[];
-  function rebuildStars(reset){ if(!reset) return; const dens=selectedDifficulty.starDensity; function make(n){ const a=[]; for(let i=0;i<n;i++) a.push({x:Math.random()*W,y:Math.random()*H}); return a; } const nBG=Math.floor(W*H*dens/140), nMG=Math.floor(W*H*dens/110), nFG=Math.floor(W*H*dens/90); starsBG=make(nBG); starsMG=make(nMG); starsFG=make(nFG); }
-  function drawSpace(){ const g=ctx.createRadialGradient(W*0.7,H*0.2,Math.min(W,H)*0.1, W*0.5,H*0.8, Math.hypot(W,H)*0.6); g.addColorStop(0, selectedDifficulty.palette[1]); g.addColorStop(1, selectedDifficulty.palette[0]); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.fillStyle='#fff'; for(const s of starsBG){ ctx.fillRect(s.x,s.y,1,1); s.y+=selectedDifficulty.parallax[0]; if(s.y>H) s.y=0; } for(const s of starsMG){ ctx.fillRect(s.x,s.y,2,2); s.y+=selectedDifficulty.parallax[1]; if(s.y>H) s.y=0; } for(const s of starsFG){ ctx.fillRect(s.x,s.y,3,3); s.y+=selectedDifficulty.parallax[2]; if(s.y>H) s.y=0; } }
+  // ===== Background =====
+  var starsFG=[], starsMG=[], starsBG=[];
+  function rebuildStars(reset){ if(!reset) return; var dens=selectedDifficulty.starDensity; function make(n){ var a=[]; for(var i=0;i<n;i++) a.push({x:Math.random()*W,y:Math.random()*H}); return a; } var nBG=Math.floor(W*H*dens/140), nMG=Math.floor(W*H*dens/110), nFG=Math.floor(W*H*dens/90); starsBG=make(nBG); starsMG=make(nMG); starsFG=make(nFG); }
+  function drawSpace(){ var g=ctx.createRadialGradient(W*0.7,H*0.2,Math.min(W,H)*0.1, W*0.5,H*0.8, Math.hypot(W,H)*0.6); g.addColorStop(0, selectedDifficulty.palette[1]); g.addColorStop(1, selectedDifficulty.palette[0]); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.fillStyle='#fff'; var i; for(i=0;i<starsBG.length;i++){ var s=starsBG[i]; ctx.fillRect(s.x,s.y,1,1); s.y+=selectedDifficulty.parallax[0]; if(s.y>H) s.y=0; } for(i=0;i<starsMG.length;i++){ s=starsMG[i]; ctx.fillRect(s.x,s.y,2,2); s.y+=selectedDifficulty.parallax[1]; if(s.y>H) s.y=0; } for(i=0;i<starsFG.length;i++){ s=starsFG[i]; ctx.fillRect(s.x,s.y,3,3); s.y+=selectedDifficulty.parallax[2]; if(s.y>H) s.y=0; } }
 
   // ===== Draw entities =====
-  function drawPlayer(p){ ctx.save(); p.tilt += ((p.vx/7)-p.tilt)*0.1; const cx=p.x+p.w*0.5, cy=p.y+p.h*0.5; ctx.translate(cx,cy); ctx.rotate(p.tilt*0.25); ctx.scale(p.scale,p.scale); ctx.translate(-cx,-cy); const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h); grad.addColorStop(0,selectedShip.color1); grad.addColorStop(1,selectedShip.color2); ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(p.x+p.w*0.5,p.y); ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85); ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(173,216,230,0.65)'; ctx.beginPath(); ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2); ctx.fill(); const pulseC = 0.5 + 0.5 * Math.sin(Date.now()/600); ctx.strokeStyle = `rgba(173,216,230,${0.4+0.4*pulseC})`; ctx.lineWidth = 3; ctx.stroke(); if(state.grace>0){ ctx.globalAlpha = 0.5 + 0.5*Math.sin(Date.now()/60); ctx.fill(); ctx.globalAlpha=1; } ctx.restore(); }
-  function drawObstacle(o){ ctx.save(); ctx.translate(o.x+o.w/2,o.y+o.h/2); ctx.rotate(o.rot||0); ctx.fillStyle='#94a3b8'; const x=-o.w/2,y=-o.h/2,r=6; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+o.w,y,x+o.w,y+o.h,r); ctx.arcTo(x+o.w,y+o.h,x,y+o.h,r); ctx.arcTo(x,y+o.h,x,y,r); ctx.arcTo(x,y,x+o.w,y,r); ctx.closePath(); ctx.fill(); ctx.restore(); }
-  function drawCoin(c){ ctx.save(); ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); const g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r); g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#fbbf24'); ctx.fillStyle=g; ctx.fill(); const pulse = 0.5 + 0.5 * Math.sin(Date.now()/500); ctx.strokeStyle = `rgba(255,215,0,${0.3+0.5*pulse})`; ctx.lineWidth = 4; ctx.stroke(); ctx.restore(); }
-  function drawBoost(b){ ctx.save(); const r=b.r; const x=b.x, y=b.y; const g=ctx.createRadialGradient(x,y,1,x,y,r); g.addColorStop(0,'#a7f3d0'); g.addColorStop(1,'#22d3ee'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='rgba(34,211,238,0.8)'; ctx.stroke(); ctx.fillStyle='#0ea5b7'; ctx.beginPath(); ctx.moveTo(x-2, y-r*0.6); ctx.lineTo(x+3, y-2); ctx.lineTo(x-4, y-1); ctx.lineTo(x+2, y+r*0.6); ctx.lineTo(x-3, y+2); ctx.lineTo(x+4, y+1); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  function drawPlayer(p){ ctx.save(); p.tilt += ((p.vx/7)-p.tilt)*0.1; var cx=p.x+p.w*0.5, cy=p.y+p.h*0.5; ctx.translate(cx,cy); ctx.rotate(p.tilt*0.25); ctx.scale(p.scale,p.scale); ctx.translate(-cx,-cy); var grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h); grad.addColorStop(0,selectedShip.color1); grad.addColorStop(1,selectedShip.color2); ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(p.x+p.w*0.5,p.y); ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85); ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(173,216,230,0.65)'; ctx.beginPath(); ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2); ctx.fill(); var pulseC = 0.5 + 0.5 * Math.sin(Date.now()/600); ctx.strokeStyle = 'rgba(173,216,230,'+(0.4+0.4*pulseC)+')'; ctx.lineWidth = 3; ctx.stroke(); if(state.grace>0){ ctx.globalAlpha = 0.5 + 0.5*Math.sin(Date.now()/60); ctx.fill(); ctx.globalAlpha=1; } ctx.restore(); }
+  function drawObstacle(o){ ctx.save(); ctx.translate(o.x+o.w/2,o.y+o.h/2); ctx.rotate(o.rot||0); ctx.fillStyle='#94a3b8'; var x=-o.w/2,y=-o.h/2,r=6; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+o.w,y,x+o.w,y+o.h,r); ctx.arcTo(x+o.w,y+o.h,x,y+o.h,r); ctx.arcTo(x,y+o.h,x,y,r); ctx.arcTo(x,y,x+o.w,y,r); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  function drawCoin(c){ ctx.save(); ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); var g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r); g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#fbbf24'); ctx.fillStyle=g; ctx.fill(); var pulse = 0.5 + 0.5 * Math.sin(Date.now()/500); ctx.strokeStyle = 'rgba(255,215,0,'+(0.3+0.5*pulse)+')'; ctx.lineWidth = 4; ctx.stroke(); ctx.restore(); }
+  function drawBoost(b){ ctx.save(); var r=b.r; var x=b.x, y=b.y; var g=ctx.createRadialGradient(x,y,1,x,y,r); g.addColorStop(0,'#a7f3d0'); g.addColorStop(1,'#22d3ee'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='rgba(34,211,238,0.8)'; ctx.stroke(); ctx.fillStyle='#0ea5b7'; ctx.beginPath(); ctx.moveTo(x-2, y-r*0.6); ctx.lineTo(x+3, y-2); ctx.lineTo(x-4, y-1); ctx.lineTo(x+2, y+r*0.6); ctx.lineTo(x-3, y+2); ctx.lineTo(x+4, y+1); ctx.closePath(); ctx.fill(); ctx.restore(); }
 
   // ===== Trail (boost-only) =====
-  function addTrail(){ if(!state.boostActive) return; const cx = state.player.x + state.player.w*0.5; const cy = state.player.y + state.player.h*0.75; state.trail.push({x:cx, y:cy}); if(state.trail.length>22) state.trail.shift(); }
-  function drawTrail(){ if(!state.trail.length) return; ctx.save(); for(let i=1;i<state.trail.length;i++){ const a = state.trail[i-1], b = state.trail[i]; const t = i/state.trail.length; const alpha = 0.08 + 0.6 * t * (state.boostActive?1:0.3); ctx.strokeStyle = `rgba(103, 232, 249, ${alpha})`; ctx.lineWidth = 6 * t; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } ctx.restore(); }
+  function addTrail(){ if(!state.boostActive) return; var cx = state.player.x + state.player.w*0.5; var cy = state.player.y + state.player.h*0.75; state.trail.push({x:cx, y:cy}); if(state.trail.length>22) state.trail.shift(); }
+  function drawTrail(){ if(!state.trail.length) return; ctx.save(); for(var i=1;i<state.trail.length;i++){ var a = state.trail[i-1], b = state.trail[i]; var t = i/state.trail.length; var alpha = 0.08 + 0.6 * t * (state.boostActive?1:0.3); ctx.strokeStyle = 'rgba(103, 232, 249, '+alpha+')'; ctx.lineWidth = 6 * t; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } ctx.restore(); }
 
-  // ===== HUD =====
-  function drawHUD(){ drawTextOutlined(ctx, `Score: ${state.score}`, 16, 28, { size: 16, weight: 800, align:'left' }); if(state.boostActive){ drawTextOutlined(ctx, 'BOOST!', W-16, 28, { size: 16, weight: 800, align:'right', fill:'#a7f3d0' }); } }
-  function drawStart(){ drawSpace(); drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.34, { size: 28, weight: 800, align:'center' }); drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.42, { size: 16, weight: 700, align:'center' }); drawTextOutlined(ctx, `Credits: ${totalCredits}`, W/2, H*0.50, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' }); }
-  function drawGameOverWithMsg(msg){ drawSpace(); drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); } const bx=W/2-70, by=H*0.65-22, bw=140, bh=44; ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,bw,bh); ctx.save(); const pulse=0.5+0.5*Math.sin(Date.now()/400); ctx.strokeStyle=`rgba(255,255,255,${0.5+0.5*pulse})`; ctx.lineWidth=3; ctx.strokeRect(bx,by,bw,bh); ctx.restore(); drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' }); state.restartBtn={x:bx,y:by,w:bw,h:bh}; if(!state.running) requestAnimationFrame(()=> drawGameOverWithMsg(msg)); }
+  // ===== HUD / Start & Over screens =====
+  function drawHUD(){ drawTextOutlined(ctx, 'Score: '+state.score, 16, 28, { size: 16, weight: 800, align:'left' }); if(state.boostActive){ drawTextOutlined(ctx, 'BOOST!', W-16, 28, { size: 16, weight: 800, align:'right', fill:'#a7f3d0' }); } }
+  function drawStart(){ drawSpace(); drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.34, { size: 28, weight: 800, align:'center' }); drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.42, { size: 16, weight: 700, align:'center' }); drawTextOutlined(ctx, 'Credits: '+totalCredits, W/2, H*0.50, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' }); }
+  function drawGameOverWithMsg(msg){ drawSpace(); drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); drawTextOutlined(ctx, 'Score: '+state.score, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); } var bx=W/2-70, by=H*0.65-22, bw=140, bh=44; ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,bw,bh); ctx.save(); var pulse=0.5+0.5*Math.sin(Date.now()/400); ctx.strokeStyle='rgba(255,255,255,'+(0.5+0.5*pulse)+')'; ctx.lineWidth=3; ctx.strokeRect(bx,by,bw,bh); ctx.restore(); drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' }); state.restartBtn={x:bx,y:by,w:bw,h:bh}; if(!state.running) requestAnimationFrame(function(){ drawGameOverWithMsg(msg); }); }
 
   // ===== Helpers =====
   function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
-  function circleRectOverlap(c,r){ const cx=Math.max(r.x,Math.min(c.x,r.x+r.w)); const cy=Math.max(r.y,Math.min(c.y,r.y+r.h)); const dx=c.x-cx, dy=c.y-cy; return (dx*dx+dy*dy) <= (c.r*c.r); }
+  function circleRectOverlap(c,r){ var cx=Math.max(r.x,Math.min(c.x,r.x+r.w)); var cy=Math.max(r.y,Math.min(c.y,r.y+r.h)); var dx=c.x-cx, dy=c.y-cy; return (dx*dx+dy*dy) <= (c.r*c.r); }
 
   // ===== Spawning =====
-  function spawnObstacle(){ const w=28+Math.random()*42, h=w*(0.8+Math.random()*0.3); const x=Math.random()*(W-w), y=-h-10, vy=state.speed + Math.random()*2.0 + state.t*0.0003; state.obstacles.push({x,y,w,h,vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.05}); }
-  function spawnCoin(){ const r=10+Math.random()*4, x=r+Math.random()*(W-r*2), y=-r-10, vy=state.speed+1; state.coins.push({x,y,r,vy}); }
-  function spawnBoost(){ const r=12, x=r+Math.random()*(W-r*2), y=-r-10, vy=state.speed+1.4; state.boosts.push({x,y,r,vy}); }
-
-  // ===== NEW: Pause/Resume =====
-  let last = 0; // shared with loop
-  function togglePause(){
-    if(!state.running) return;
-    state.paused = !state.paused;
-    btnPause.textContent = state.paused ? 'Resume' : 'Pause';
-
-    if(state.paused){
-      showOverlay('shop');               // open shop while paused
-      if(bgMusic && !bgMusic.paused) fadeMusic(0.3,150);
-    } else {
-      hideOverlay();
-      last = performance.now();
-      requestAnimationFrame(loop);       // resume loop
-      if(bgMusic && !muted){ tryPlayMusic(); fadeMusic(1,150); }
-    }
+  function spawnObstacle(){
+    var w=28+Math.random()*42, h=w*(0.8+Math.random()*0.3);
+    var x=Math.random()*(W-w), y=-h-10;
+    var m = (selectedDifficulty.meteorMul||1);
+    var vy = (state.speed*m) + (0.6+Math.random()*1.6)*m + state.t*0.0003*m;
+    state.obstacles.push({x:x,y:y,w:w,h:h,vy:vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.05});
+  }
+  function spawnCoin(){
+    var r=10+Math.random()*4;
+    var x=r+Math.random()*(W-r*2), y=-r-10;
+    var dm = (selectedDifficulty.dropMul!=null?selectedDifficulty.dropMul:(selectedDifficulty.meteorMul||1));
+    var vy=(state.speed+1)*dm;
+    state.coins.push({x:x,y:y,r:r,vy:vy});
+  }
+  function spawnBoost(){
+    var r=12;
+    var x=r+Math.random()*(W-r*2), y=-r-10;
+    var dm = (selectedDifficulty.dropMul!=null?selectedDifficulty.dropMul:(selectedDifficulty.meteorMul||1));
+    var vy=(state.speed+1.4)*dm;
+    state.boosts.push({x:x,y:y,r:r,vy:vy});
   }
 
   // ===== Input =====
-  addEventListener('keydown', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true; if(e.key==='p'||e.key==='P') togglePause(); if(e.key==='r'||e.key==='R') if(!state.running) start(); if(e.key==='Escape'){ if(!titleOverlay.classList.contains('hidden')){ hideOverlay(); if(state.running){ state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } } else { togglePause(); if(state.paused) showOverlay('shop'); } } });
-  addEventListener('keyup', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false; });
-  function bindHold(btn, onDown, onUp){ const down=e=>{ e.preventDefault(); onDown(); }; const up=e=>{ e.preventDefault(); onUp(); }; if(!btn) return; btn.addEventListener('touchstart', down, {passive:false}); btn.addEventListener('touchend', up); btn.addEventListener('touchcancel', up); btn.addEventListener('mousedown', down); window.addEventListener('mouseup', up); }
-  bindHold(btnLeft,  ()=> state.input.left  = true, ()=> state.input.left  = false);
-  bindHold(btnRight, ()=> state.input.right = true, ()=> state.input.right = false);
-  window.addEventListener('touchmove', (e)=>{ if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault(); }, {passive:false});
+  addEventListener('keydown', function(e){
+    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true;
+    if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true;
+    if(e.key==='p'||e.key==='P') togglePause();
+    if(e.key==='r'||e.key==='R') if(!state.running) start();
+    if(e.key==='Escape'){
+      if(titleOverlay.classList.contains('hidden')){
+        if(state.running && !state.paused){ togglePause(); showOverlay('shop'); }
+        else if(state.running && state.paused){ hideOverlay(); togglePause(); }
+      } else {
+        hideOverlay(); if(state.running && state.paused){ togglePause(); }
+      }
+    }
+  });
+  addEventListener('keyup', function(e){ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false; });
+  function bindHold(btn, onDown, onUp){ function down(e){ e.preventDefault(); onDown(); } function up(e){ e.preventDefault(); onUp(); } if(!btn) return; btn.addEventListener('touchstart', down, {passive:false}); btn.addEventListener('touchend', up); btn.addEventListener('touchcancel', up); btn.addEventListener('mousedown', down); window.addEventListener('mouseup', up); }
+  bindHold(btnLeft,  function(){ state.input.left  = true; }, function(){ state.input.left  = false; });
+  bindHold(btnRight, function(){ state.input.right = true; }, function(){ state.input.right = false; });
+  window.addEventListener('touchmove', function(e){ if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault(); }, {passive:false});
 
-  btnPause.addEventListener('click', ()=> togglePause());
-  btnShop .addEventListener('click', ()=>{ if(state.running){ if(!state.paused) togglePause(); else showOverlay('shop'); } else { showOverlay('start'); } });
-  btnSettings.addEventListener('click', ()=>{ if(state.running){ state.paused=true; btnPause.textContent='Resume'; showOverlay('settings'); } else { showOverlay('settings'); } });
-  chkDrag.addEventListener('change', ()=>{ settings.drag = chkDrag.checked; saveSettings(); });
-  chkTouchBtns.addEventListener('change', ()=>{ settings.showTouch = chkTouchBtns.checked; saveSettings(); updateTouchButtonsVisibility(); });
+  btnPause.addEventListener('click', function(){ togglePause(); });
+  btnShop .addEventListener('click', function(){ if(state.running){ if(!state.paused){ togglePause(); showOverlay('shop'); } else { showOverlay('shop'); } } else { showOverlay('start'); } });
+  btnSettings.addEventListener('click', function(){ if(state.running){ if(!state.paused) togglePause(); showOverlay('settings'); } else { showOverlay('settings'); } });
+  chkDrag.addEventListener('change', function(){ settings.drag = chkDrag.checked; saveSettings(); });
+  chkTouchBtns.addEventListener('change', function(){ settings.showTouch = chkTouchBtns.checked; saveSettings(); updateTouchButtonsVisibility(); });
 
-  btnStart.addEventListener('click', start);
-  if (bigStart) bigStart.addEventListener('click', ()=>{ if(summaryPanel.style.display!=='none'){ hideOverlay(); start(); } else if(overlayHowTo.style.display===''){ start(); } else { hideOverlay(); state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } });
-  btnCloseShop.addEventListener('click', ()=>{ hideOverlay(); if(state.running){ state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } });
+  btnStart.addEventListener('click', function(){ start(); });
+  bigStart.addEventListener('click', function(){ if(overlayMode==='summary' || overlayMode==='start'){ hideOverlay(); start(); } else if(state.running && state.paused){ hideOverlay(); togglePause(); } else { hideOverlay(); start(); } });
+  btnCloseShop.addEventListener('click', function(){ hideOverlay(); if(state.running && state.paused){ togglePause(); } });
 
   // ===== Start / Reset =====
-  async function start(){
+  var last = 0;
+  function start(){
     state.running=true; state.paused=false; state.t=0; state.score=0;
     state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0; state.boostTimer=9000+Math.random()*4000;
     state.obstacles.length=0; state.coins.length=0; state.boosts.length=0; state.restartBtn=null; state.trail.length=0;
@@ -464,104 +490,110 @@ You’re getting that error because `togglePause()` is referenced several times 
 
     runStats = { coins:0, credits:0, boosts:0, startTime:performance.now(), endTime:0 };
 
-    const pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
+    var pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
     state.player.w=pw; state.player.h=pw; state.player.scale=1; state.player.vx=0; state.player.tilt=0;
     state.player.x=(W-pw)/2; state.player.y=H - pw*2.2;
 
     btnPause.disabled=false; btnShop.disabled=false; btnStart.textContent='Restart';
     hideOverlay();
 
-    try{ ensureAudio(); if(ac.state==='suspended') await ac.resume(); ensureMusicGraph(); }catch(_){ }
+    try{ ensureAudio(); if(ac.state==='suspended') ac.resume(); ensureMusicGraph(); }catch(_){ }
     if(!muted && bgMusic){ if(bgMusic.paused){ tryPlayMusic(); fadeMusic(1,250); } }
 
     last=performance.now(); tone(700,0.08,'square',0.05); requestAnimationFrame(loop);
   }
 
+  // ===== Toggle Pause =====
+  function togglePause(){
+    if(!state.running) return;
+    state.paused = !state.paused;
+    btnPause.textContent = state.paused ? 'Resume' : 'Pause';
+    if(!state.paused){ last = performance.now(); requestAnimationFrame(loop); }
+  }
+
   // ===== Loop =====
   function loop(now){
     if(!state.running || state.paused) return;
-    const dt=Math.min(33, now-last); last=now; state.t+=dt; state.speed += 0.00055*dt; if(state.grace>0) state.grace-=dt;
+    var dt=Math.min(33, now-last); last=now; state.t+=dt; state.speed += 0.00055*dt; if(state.grace>0) state.grace-=dt;
 
-    // handle boost timer
-    if(state.boostActive){ state.boostTime -= dt; if(state.boostTime<=0){ state.boostActive=false; state.boostMultiplier=1; } }
-
-    // spawn
+    // timers
     state.spawnTimer -= dt; if(state.spawnTimer<=0){ state.spawnTimer=selectedDifficulty.spawn; spawnObstacle(); }
-    state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin; spawnCoin(); }
+    state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin;  spawnCoin(); }
     state.boostTimer -= dt; if(state.boostTimer<=0){ state.boostTimer=9000+Math.random()*5000; spawnBoost(); }
 
-    // movement (smoothed and slowed)
-    const dir = (state.input.right?1:0) - (state.input.left?1:0);
-    const baseSpeed = Math.max(0.08, W*0.0005) * (1.5 + selectedDifficulty.speed*0.6); // px/ms (slow)
-    const targetVx = dir * baseSpeed;                        // px/ms
-    state.player.vx += (targetVx - state.player.vx) * 0.22;  // smoothing
+    if(state.boostActive){ state.boostTime -= dt; if(state.boostTime<=0){ state.boostActive=false; state.boostMultiplier=1; } }
+
+    // movement (smooth + slow)
+    var dir = (state.input.right?1:0) - (state.input.left?1:0);
+    var baseSpeed = Math.max(0.08, W*0.0005) * (1.5 + selectedDifficulty.speed*0.6); // px/ms
+    var targetVx = dir * baseSpeed;
+    state.player.vx += (targetVx - state.player.vx) * 0.22;
     if(dir===0 && Math.abs(state.player.vx) < 0.002) state.player.vx = 0;
     state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + state.player.vx * dt));
 
-    // pointer drag (mouse/finger)
-    // handled by event listeners; we only clamp above every frame
+    // entities
+    var i;
+    for(i=0;i<state.obstacles.length;i++){ var o=state.obstacles[i]; o.y+=o.vy; o.rot+=o.vr; }
+    for(i=0;i<state.coins.length;i++){ var c=state.coins[i]; c.y+=c.vy; }
+    for(i=0;i<state.boosts.length;i++){ var b=state.boosts[i]; b.y+=b.vy; }
 
-    // entities motion
-    for(const o of state.obstacles){ o.y+=o.vy; o.rot+=o.vr; }
-    for(const c of state.coins) c.y+=c.vy;
-    for(const b of state.boosts) b.y+=b.vy;
-
-    // magnet
+    // magnet pull
     if(upgrades.magnet>0){
-      const r = 30 + upgrades.magnet*40; // radius
-      for(const c of state.coins){ const dx=state.player.x+state.player.w/2 - c.x; const dy=state.player.y+state.player.h/2 - c.y; const d2=dx*dx+dy*dy; if(d2<r*r){ c.x += dx*0.04; c.y += dy*0.04; } }
-      for(const b of state.boosts){ const dx=state.player.x+state.player.w/2 - b.x; const dy=state.player.y+state.player.h/2 - b.y; const d2=dx*dx+dy*dy; if(d2<r*r){ b.x += dx*0.03; b.y += dy*0.03; } }
+      var r = 30 + upgrades.magnet*40;
+      for(i=0;i<state.coins.length;i++){ c=state.coins[i]; var dx=state.player.x+state.player.w/2 - c.x; var dy=state.player.y+state.player.h/2 - c.y; var d2=dx*dx+dy*dy; if(d2<r*r){ c.x += dx*0.04; c.y += dy*0.04; } }
+      for(i=0;i<state.boosts.length;i++){ b=state.boosts[i]; dx=state.player.x+state.player.w/2 - b.x; dy=state.player.y+state.player.h/2 - b.y; d2=dx*dx+dy*dy; if(d2<r*r){ b.x += dx*0.03; b.y += dy*0.03; } }
     }
 
     // cull
-    state.obstacles = state.obstacles.filter(o=>o.y < H+60);
-    state.coins     = state.coins.filter(c=>c.y < H+60);
-    state.boosts    = state.boosts.filter(b=>b.y < H+60);
+    state.obstacles = state.obstacles.filter(function(o){ return o.y < H+60; });
+    state.coins     = state.coins.filter(function(c){ return c.y < H+60; });
+    state.boosts    = state.boosts.filter(function(b){ return b.y < H+60; });
 
     // collisions
     if(state.grace<=0 && !state.boostActive){
-      for(const o of state.obstacles){ if(rectsOverlap(state.player,o)){ if(state.shieldCharges>0){ state.shieldCharges--; state.grace=800; tone(240,0.2,'sawtooth',0.08); break; } else { gameOver(); return; } } }
+      for(i=0;i<state.obstacles.length;i++){ o=state.obstacles[i]; if(rectsOverlap(state.player,o)){ if(state.shieldCharges>0){ state.shieldCharges--; state.grace=800; tone(240,0.2,'sawtooth',0.08); break; } else { gameOver(); return; } } }
     }
-    for(let i=state.coins.length-1;i>=0;i--){ const c=state.coins[i]; if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); const earned = 1 + (upgrades.coin||0); totalCredits += earned; runStats.coins += 1; runStats.credits += earned; setLS('meteorDash_credits', totalCredits); elCredits.textContent = `Credits: ${totalCredits}`; tone(1000,0.08,'triangle',0.06); } }
-    for(let i=state.boosts.length-1;i>=0;i--){ const b=state.boosts[i]; if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ state.boosts.splice(i,1); state.boostActive=true; const extra = upgrades.boost*500; state.boostTime=2500+extra; state.boostMultiplier=2 + upgrades.boost*0.2; runStats.boosts += 1; tone(1400,0.12,'sawtooth',0.07); } }
+    for(i=state.coins.length-1;i>=0;i--){ c=state.coins[i]; if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); var earned = 1 + (upgrades.coin||0); totalCredits += earned; runStats.coins += 1; runStats.credits += earned; setLS('meteorDash_credits', totalCredits); elCredits.textContent = 'Credits: '+totalCredits; tone(1000,0.08,'triangle',0.06); } }
+    for(i=state.boosts.length-1;i>=0;i--){ b=state.boosts[i]; if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ state.boosts.splice(i,1); state.boostActive=true; var extra = upgrades.boost*500; state.boostTime=2500+extra; state.boostMultiplier=2 + upgrades.boost*0.2; runStats.boosts += 1; tone(1400,0.12,'sawtooth',0.07); } }
 
-    // score
+    // score tick
     state.score += Math.floor(0.02*dt*selectedDifficulty.multiplier*state.boostMultiplier);
-    if(state.score>hi){ hi=state.score; setLS('meteorDash_hi', hi); elHi.textContent = `Best: ${hi}`; }
+    if(state.score>hi){ hi=state.score; setLS('meteorDash_hi', hi); elHi.textContent = 'Best: '+hi; }
 
-    // trail update
+    // trail
     addTrail();
 
     // render
     drawSpace(); drawHUD();
-    for(const o of state.obstacles) drawObstacle(o);
-    for(const c of state.coins) drawCoin(c);
-    for(const b of state.boosts) drawBoost(b);
+    for(i=0;i<state.obstacles.length;i++) drawObstacle(state.obstacles[i]);
+    for(i=0;i<state.coins.length;i++) drawCoin(state.coins[i]);
+    for(i=0;i<state.boosts.length;i++) drawBoost(state.boosts[i]);
     drawTrail();
     drawPlayer(state.player);
 
-    elScore.textContent = `Score: ${state.score}`;
+    elScore.textContent = 'Score: '+state.score;
     requestAnimationFrame(loop);
   }
 
+  // ===== Game over & restart =====
   function gameOver(){
     tone(160,0.25,'square',0.09);
     state.running=false; btnPause.disabled=true; btnShop.disabled=false;
-    const msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
+    var msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
     ctx.save(); ctx.fillStyle='rgba(255,100,0,0.5)'; ctx.beginPath(); ctx.arc(state.player.x+state.player.w/2, state.player.y+state.player.h/2, 80, 0, Math.PI*2); ctx.fill(); ctx.restore();
     drawGameOverWithMsg(msg);
     canvas.addEventListener('click', onRestartClick);
     runStats.endTime = performance.now();
     showOverlay('summary', { score: state.score, coins: runStats.coins, credits: runStats.credits, boosts: runStats.boosts, funny: msg });
   }
-  function onRestartClick(e){ const rect = canvas.getBoundingClientRect(); const mx = (e.clientX-rect.left), my=(e.clientY-rect.top); if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){ canvas.removeEventListener('click', onRestartClick); start(); } }
+  function onRestartClick(e){ var rect = canvas.getBoundingClientRect(); var mx = (e.clientX-rect.left), my=(e.clientY-rect.top); if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){ canvas.removeEventListener('click', onRestartClick); start(); } }
 
-  // Pointer drag control (mouse/finger)
-  let dragging = false;
-  function pointerToX(ev){ const rect = canvas.getBoundingClientRect(); const clientX = (ev.touches? ev.touches[0].clientX : ev.clientX); const x = clientX - rect.left; return Math.max(0, Math.min(W - state.player.w, x - state.player.w*0.5)); }
-  canvas.addEventListener('pointerdown', (e)=>{ if(!settings.drag) return; dragging=true; state.input.left=false; state.input.right=false; state.player.x = pointerToX(e); canvas.setPointerCapture?.(e.pointerId); });
-  canvas.addEventListener('pointermove', (e)=>{ if(!settings.drag || !dragging) return; state.player.x = pointerToX(e); });
-  canvas.addEventListener('pointerup',   (e)=>{ if(!settings.drag) return; dragging=false; try{ canvas.releasePointerCapture?.(e.pointerId); }catch(_){ } });
+  // Pointer drag control
+  var dragging = false;
+  function pointerToX(ev){ var rect = canvas.getBoundingClientRect(); var clientX = ev.touches? ev.touches[0].clientX : ev.clientX; var x = clientX - rect.left; return Math.max(0, Math.min(W - state.player.w, x - state.player.w*0.5)); }
+  canvas.addEventListener('pointerdown', function(e){ if(!settings.drag) return; dragging=true; state.input.left=false; state.input.right=false; state.player.x = pointerToX(e); if(canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', function(e){ if(!settings.drag || !dragging) return; state.player.x = pointerToX(e); });
+  canvas.addEventListener('pointerup',   function(e){ if(!settings.drag) return; dragging=false; try{ if(canvas.releasePointerCapture) canvas.releasePointerCapture(e.pointerId); }catch(_){ } });
 
   // Kick off
   resize();
@@ -571,12 +603,9 @@ You’re getting that error because `togglePause()` is referenced several times 
   applySettingsUI();
 
   // Diagnostics
-  bgMusic?.addEventListener('canplaythrough', ()=> console.log('Music ready:', bgMusic.currentSrc));
-  bgMusic?.addEventListener('error', ()=> console.warn('Music failed to load. Ensure music.mp3 sits next to index.html (case-sensitive).'));
+  bgMusic.addEventListener('canplaythrough', function(){ try{ console.log('Music ready:', bgMusic.currentSrc);}catch(_){} });
+  bgMusic.addEventListener('error', function(){ try{ console.warn('Music failed to load. Ensure music.mp3 sits next to index.html (case-sensitive).');}catch(_){} });
 })();
 </script>
 </body>
 </html>
-```
-
-If you prefer to keep the overlay closed when pausing, change `showOverlay('shop')` inside `togglePause()` to just leave the overlay hidden.
