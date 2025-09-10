@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Meteor Dash — Final Build (Upgrades + Boosts + Header Shop)</title>
+<title>Meteor Dash — Final Build (Upgrades + Boosts + Shop + Summary + Settings + Drag)</title>
 <style>
   :root{ --bg:#0b1020; --fg:#e2e8f0; }
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; }
@@ -23,12 +23,12 @@
   #musicVolume{ width:110px; }
   #err{ position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#7f1d1d; color:#fff; padding:12px; border:2px solid #fecaca; border-radius:10px; font-family:ui-monospace,monospace; display:none; white-space:pre-wrap }
 
-  /* Title/Shop overlay */
+  /* Title/Shop/Settings/Summary overlay */
   #titleOverlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6)); z-index:15; }
   #titleOverlay.hidden{ display:none; }
-  #titleOverlay .card{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:22px 24px; border-radius:16px; text-align:center; backdrop-filter:blur(2px); max-width:680px; width:calc(100% - 24px); }
+  #titleOverlay .card{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:22px 24px; border-radius:16px; text-align:center; backdrop-filter:blur(2px); max-width:760px; width:calc(100% - 24px); }
   #titleOverlay h1{ margin:0 0 6px; font-size:30px; font-weight:900; }
-  #titleOverlay p{ margin:0 0 12px; opacity:.9; }
+  #titleOverlay p{ margin:0 8px 12px; opacity:.9; }
   #bigStart{ font-size:18px; font-weight:800; padding:8px 16px; }
   .shop{ margin-top:10px; text-align:left; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px; }
   .shop h3{ margin:0 0 8px; font-size:18px; }
@@ -38,6 +38,8 @@
   .row button{ min-width:92px; }
   .muted{ opacity:.8 }
   .pill{ display:inline-block; padding:2px 8px; border-radius:9999px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); font-size:12px; }
+  .overlay-sections{ display:grid; grid-template-columns:1fr; gap:12px; }
+  @media (min-width: 820px){ .overlay-sections{ grid-template-columns:1fr 1fr; } }
 
   /* Touch controls pinned to edges */
   #touchControls{ position:fixed; bottom:18px; left:0; right:0; display:none; z-index:20; padding:0 40px; justify-content:space-between; align-items:center; }
@@ -56,6 +58,7 @@
       <button id="btnStart">Start</button>
       <button id="btnPause" disabled>Pause</button>
       <button id="btnShop" disabled>Shop</button>
+      <button id="btnSettings">Settings</button>
       <button id="btnMute" aria-pressed="false">🔊</button>
       <div class="volwrap">
         <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.4" />
@@ -72,45 +75,90 @@
 
   <footer>
     <span>© stevelin30 productions · v1.0</span>
-    <span>Move: ← → or A/D</span>
+    <span>Move: ← → or A/D · Drag/Touch available</span>
     <span>Pause: P · Restart: R</span>
   </footer>
 </div>
 
-<!-- Title/Shop overlay -->
+<!-- Overlay -->
 <div id="titleOverlay">
   <div class="card">
     <h1 id="overlayTitle">stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span></h1>
     <p id="overlaySubtitle">Meteor Dash — Outrun the debris. Grab coins. Try not to explode.</p>
-    <p class="muted" id="overlayHowTo"><em>How to Play: Use ← → (A/D) or touch buttons to move. Collect coins, dodge meteors!</em></p>
+    <p class="muted" id="overlayHowTo"><em>How to Play: Use ← → (A/D), on-screen buttons, or drag with mouse/finger.</em></p>
 
-    <div class="shop">
-      <h3>Upgrades <span class="muted">(persist across runs)</span></h3>
-      <div class="row">
-        <div class="info">
-          <strong>Magnet</strong>
-          <small>Pull in nearby coins. Radius increases each level.</small>
-          <small>Level: <span id="lvlMagnet">0</span> · Next cost: <span id="costMagnet">50</span></small>
+    <div class="overlay-sections">
+      <!-- Shop -->
+      <div class="shop">
+        <h3>Upgrades <span class="muted">(persist across runs)</span></h3>
+        <div class="row">
+          <div class="info">
+            <strong>Magnet</strong>
+            <small>Pull in nearby coins. Radius increases each level.</small>
+            <small>Level: <span id="lvlMagnet">0</span> · Next cost: <span id="costMagnet">5</span></small>
+          </div>
+          <button id="btnBuyMagnet">Buy</button>
         </div>
-        <button id="btnBuyMagnet">Buy</button>
-      </div>
-      <div class="row">
-        <div class="info">
-          <strong>Shield</strong>
-          <small>Start with extra hit(s). Consumed on impact.</small>
-          <small>Level: <span id="lvlShield">0</span> · Next cost: <span id="costShield">80</span></small>
+        <div class="row">
+          <div class="info">
+            <strong>Shield</strong>
+            <small>Start with extra hit(s). Consumed on impact.</small>
+            <small>Level: <span id="lvlShield">0</span> · Next cost: <span id="costShield">5</span></small>
+          </div>
+          <button id="btnBuyShield">Buy</button>
         </div>
-        <button id="btnBuyShield">Buy</button>
-      </div>
-      <div class="row">
-        <div class="info">
-          <strong>Boost Mastery</strong>
-          <small>Boosts last longer and score more.</small>
-          <small>Level: <span id="lvlBoost">0</span> · Next cost: <span id="costBoost">120</span></small>
+        <div class="row">
+          <div class="info">
+            <strong>Boost Mastery</strong>
+            <small>Boosts last longer and score more.</small>
+            <small>Level: <span id="lvlBoost">0</span> · Next cost: <span id="costBoost">5</span></small>
+          </div>
+          <button id="btnBuyBoost">Buy</button>
         </div>
-        <button id="btnBuyBoost">Buy</button>
+        <div class="row">
+          <div class="info">
+            <strong>Coin Doubler</strong>
+            <small>Each level adds +1 credit per coin (up to +3).</small>
+            <small>Level: <span id="lvlCoin">0</span> · Next cost: <span id="costCoin">10</span></small>
+          </div>
+          <button id="btnBuyCoin">Buy</button>
+        </div>
+        <p class="muted">Credits are earned by collecting coins during runs. Spend them here!</p>
       </div>
-      <p class="muted">Credits are earned by collecting coins during runs. Spend them here!</p>
+
+      <!-- Settings -->
+      <div class="shop" id="settingsPanel">
+        <h3>Settings</h3>
+        <div class="row">
+          <div class="info">
+            <strong>Mouse / Finger Drag</strong>
+            <small>Drag on the canvas to move the ship.</small>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="chkDrag" /> Enable
+          </label>
+        </div>
+        <div class="row">
+          <div class="info">
+            <strong>Touch Buttons</strong>
+            <small>Show on-screen left/right buttons on mobile.</small>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="chkTouchBtns" /> Show
+          </label>
+        </div>
+        <p class="muted">Keyboard: <b>Arrows</b> and <b>A/D</b> both work.</p>
+
+        <!-- Summary inside overlay -->
+        <div class="shop" id="summaryPanel" style="display:none; margin-top:12px;">
+          <h3>Run Summary</h3>
+          <div class="row"><div class="info"><strong>Score</strong><small id="sumScore">0</small></div><div></div></div>
+          <div class="row"><div class="info"><strong>Coins Collected</strong><small id="sumCoins">0</small></div><div></div></div>
+          <div class="row"><div class="info"><strong>Credits Earned</strong><small id="sumCredits">0</small></div><div></div></div>
+          <div class="row"><div class="info"><strong>Boosts Picked</strong><small id="sumBoosts">0</small></div><div></div></div>
+          <p class="muted" id="sumFunny" style="margin-top:6px;"></p>
+        </div>
+      </div>
     </div>
 
     <div style="display:flex; gap:8px; justify-content:center; margin-top:10px;">
@@ -147,9 +195,6 @@
   const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
   let W=0, H=0;
 
-  // Default difficulty to avoid early-access crash
-  let selectedDifficulty = { name:'Normal', speed:2.3, spawn:400, coin:900, multiplier:1.0, starDensity:0.22, palette:['#0b1020','#12183b'], parallax:[0.15,0.35,0.7] };
-
   function resize(){
     try{
       const hH = document.querySelector('header').offsetHeight||0;
@@ -174,6 +219,7 @@
   const btnStart = document.getElementById('btnStart');
   const btnPause = document.getElementById('btnPause');
   const btnShop  = document.getElementById('btnShop');
+  const btnSettings  = document.getElementById('btnSettings');
   const btnMute = document.getElementById('btnMute');
   const volSlider = document.getElementById('musicVolume');
   const volLabel = document.getElementById('volLabel');
@@ -186,22 +232,18 @@
   const overlayHowTo = document.getElementById('overlayHowTo');
   const bigStart = document.getElementById('bigStart');
   const btnCloseShop = document.getElementById('btnCloseShop');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const summaryPanel = document.getElementById('summaryPanel');
+  const chkDrag = document.getElementById('chkDrag');
+  const chkTouchBtns = document.getElementById('chkTouchBtns');
+  const sumScore = document.getElementById('sumScore');
+  const sumCoins = document.getElementById('sumCoins');
+  const sumCredits = document.getElementById('sumCredits');
+  const sumBoosts = document.getElementById('sumBoosts');
+  const sumFunny = document.getElementById('sumFunny');
+
   const btnLeft = document.getElementById('btnLeft');
   const btnRight = document.getElementById('btnRight');
-
-  // Shop elements
-  const btnBuyMagnet = document.getElementById('btnBuyMagnet');
-  const btnBuyShield = document.getElementById('btnBuyShield');
-  const btnBuyBoost  = document.getElementById('btnBuyBoost');
-  const lvlMagnetEl = document.getElementById('lvlMagnet');
-  const lvlShieldEl = document.getElementById('lvlShield');
-  const lvlBoostEl  = document.getElementById('lvlBoost');
-  const costMagnetEl = document.getElementById('costMagnet');
-  const costShieldEl = document.getElementById('costShield');
-  const costBoostEl  = document.getElementById('costBoost');
-
-  // Overlay mode: 'start' | 'shop'
-  let overlayMode = 'start';
 
   // ===== Persistence =====
   function getLS(key, def){ try{ const v=localStorage.getItem(key); return v==null?def:JSON.parse(v); }catch(_){ return def; } }
@@ -209,41 +251,48 @@
 
   let hi = getLS('meteorDash_hi', 0);
   let totalCredits = getLS('meteorDash_credits', 0);
-  const upgrades = getLS('meteorDash_upgrades', { magnet:0, shield:0, boost:0 });
+  const upgrades = getLS('meteorDash_upgrades', { magnet:0, shield:0, boost:0, coin:0 });
+  let settings = getLS('meteorDash_settings', { drag:true, showTouch:true });
   elHi.textContent = `Best: ${hi}`;
   elCredits.textContent = `Credits: ${totalCredits}`;
 
+  function saveSettings(){ setLS('meteorDash_settings', settings); }
+  function applySettingsUI(){ chkDrag.checked = !!settings.drag; chkTouchBtns.checked = !!settings.showTouch; updateTouchButtonsVisibility(); }
+  function updateTouchButtonsVisibility(){ const tc = document.getElementById('touchControls'); tc.style.display = settings.showTouch ? '' : 'none'; }
+
   const upgradeCosts = {
-    magnet:[50,150,400],
-    shield:[80,220,500],
-    boost:[120,260,620]
+    magnet:[5,10,20],
+    shield:[5,15,30],
+    boost:[5,20,40],
+    coin:[10,25,60]
   };
   function nextCost(name){ const lvl=upgrades[name]; const arr=upgradeCosts[name]; return lvl>=arr.length? null : arr[lvl]; }
   function refreshShop(){
-    lvlMagnetEl.textContent = upgrades.magnet; costMagnetEl.textContent = nextCost('magnet')??'MAX';
-    lvlShieldEl.textContent = upgrades.shield; costShieldEl.textContent = nextCost('shield')??'MAX';
-    lvlBoostEl.textContent  = upgrades.boost;  costBoostEl.textContent  = nextCost('boost')??'MAX';
-    btnBuyMagnet.disabled = nextCost('magnet')==null || totalCredits < nextCost('magnet');
-    btnBuyShield.disabled = nextCost('shield')==null || totalCredits < nextCost('shield');
-    btnBuyBoost.disabled  = nextCost('boost')==null  || totalCredits < nextCost('boost');
+    document.getElementById('lvlMagnet').textContent = upgrades.magnet; document.getElementById('costMagnet').textContent = nextCost('magnet')??'MAX';
+    document.getElementById('lvlShield').textContent = upgrades.shield; document.getElementById('costShield').textContent = nextCost('shield')??'MAX';
+    document.getElementById('lvlBoost').textContent  = upgrades.boost;  document.getElementById('costBoost').textContent  = nextCost('boost')??'MAX';
+    document.getElementById('lvlCoin').textContent   = upgrades.coin;   document.getElementById('costCoin').textContent   = nextCost('coin')??'MAX';
+    document.getElementById('btnBuyMagnet').disabled = nextCost('magnet')==null || totalCredits < nextCost('magnet');
+    document.getElementById('btnBuyShield').disabled = nextCost('shield')==null || totalCredits < nextCost('shield');
+    document.getElementById('btnBuyBoost').disabled  = nextCost('boost')==null  || totalCredits < nextCost('boost');
+    document.getElementById('btnBuyCoin').disabled   = nextCost('coin')==null   || totalCredits < nextCost('coin');
     elCredits.textContent = `Credits: ${totalCredits}`;
   }
   function buy(name){
     const cost = nextCost(name);
-    // Guard rails + tiny feedback
-    if(cost == null){ tone(250,0.08,'sine',0.05); return; }
+    if(cost==null){ tone(250,0.08,'sine',0.05); return; }
     if(totalCredits < cost){ tone(220,0.08,'sine',0.05); return; }
     totalCredits = Math.max(0, (totalCredits|0) - (cost|0));
     upgrades[name] = (upgrades[name]|0) + 1;
     setLS('meteorDash_credits', totalCredits);
     setLS('meteorDash_upgrades', upgrades);
     refreshShop();
-    // subtle confirm chirp
     tone(980,0.06,'triangle',0.05);
   }
-  btnBuyMagnet.addEventListener('click', ()=> buy('magnet'));
-  btnBuyShield.addEventListener('click', ()=> buy('shield'));
-  btnBuyBoost .addEventListener('click', ()=> buy('boost'));
+  document.getElementById('btnBuyMagnet').addEventListener('click', ()=> buy('magnet'));
+  document.getElementById('btnBuyShield').addEventListener('click', ()=> buy('shield'));
+  document.getElementById('btnBuyBoost') .addEventListener('click', ()=> buy('boost'));
+  document.getElementById('btnBuyCoin')  .addEventListener('click', ()=> buy('coin'));
   refreshShop();
 
   // ===== Text helpers (bold + outline) =====
@@ -274,7 +323,7 @@
   ships.forEach((s,i)=>{ const d=document.createElement('div'); d.className='ship-option'+(i===0?' selected':''); d.style.background=`linear-gradient(${s.color1},${s.color2})`; d.title=s.name; d.addEventListener('click', ()=>{ document.querySelectorAll('.ship-option').forEach(el=>el.classList.remove('selected')); d.classList.add('selected'); selectedShip=s; drawStart(); }); shipSelect.appendChild(d); });
 
   const difficulties = [ {name:'Easy', speed:1.6, spawn:520, coin:650, multiplier:1.0, starDensity:0.18, palette:['#0b1020','#0e1633'], parallax:[0.1,0.25,0.5]}, {name:'Normal', speed:2.3, spawn:400, coin:900, multiplier:1.0, starDensity:0.22, palette:['#0b1020','#12183b'], parallax:[0.15,0.35,0.7]}, {name:'Hard', speed:3.1, spawn:300, coin:1250, multiplier:1.2, starDensity:0.26, palette:['#0a0c24','#0f1640'], parallax:[0.2,0.5,0.9]}, {name:'Insane', speed:4.2, spawn:200, coin:2100, multiplier:1.5, starDensity:0.32, palette:['#120a20','#2a0e3c'], parallax:[0.28,0.7,1.2]} ];
-  selectedDifficulty = difficulties[1];
+  let selectedDifficulty = difficulties[1];
   difficulties.forEach((d,i)=>{ const b=document.createElement('button'); b.className='difficulty-btn'+(i===1?' selected':''); b.textContent=d.name; b.addEventListener('click', ()=>{ document.querySelectorAll('.difficulty-btn').forEach(el=>el.classList.remove('selected')); b.classList.add('selected'); selectedDifficulty=d; rebuildStars(true); drawStart(); }); difficultySelect.appendChild(b); });
 
   // ===== Comedic Game Over lines =====
@@ -284,7 +333,7 @@
   const state = {
     running:false, paused:false, t:0, score:0, speed:selectedDifficulty.speed,
     spawnTimer:0, coinTimer:0,
-    player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1, shield:false},
+    player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1},
     obstacles:[], coins:[], boosts:[],
     input:{left:false,right:false},
     restartBtn:null,
@@ -293,25 +342,47 @@
     shieldCharges: 0,
     grace: 0 // invulnerability ms after hit
   };
+  let runStats = { coins:0, credits:0, boosts:0, startTime:0, endTime:0 };
 
   // ===== Overlay helpers =====
-  function showOverlay(mode='start'){
-    overlayMode = mode;
+  function showOverlay(mode='start', data={}){
+    settingsPanel.style.display = '';
+    summaryPanel.style.display = 'none';
     if(mode==='start'){
       overlayTitle.innerHTML = "stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span>";
       overlaySubtitle.textContent = 'Meteor Dash — Outrun the debris. Grab coins. Try not to explode.';
       overlayHowTo.style.display = '';
       bigStart.textContent = 'Start';
       btnCloseShop.style.display = 'none';
-    }else{ // shop during pause
+    } else if(mode==='shop'){
       overlayTitle.textContent = 'Upgrade Shop';
       overlaySubtitle.textContent = 'Spend credits to power up. Upgrades persist across runs.';
       overlayHowTo.style.display = 'none';
       bigStart.textContent = 'Resume';
       btnCloseShop.style.display = '';
+    } else if(mode==='settings'){
+      overlayTitle.textContent = 'Settings';
+      overlaySubtitle.textContent = 'Customize controls and HUD.';
+      overlayHowTo.style.display = 'none';
+      bigStart.textContent = state.running ? 'Resume' : 'Start';
+      btnCloseShop.style.display = state.running ? '' : 'none';
+    } else if(mode==='summary'){
+      settingsPanel.style.display = 'none';
+      summaryPanel.style.display = '';
+      overlayTitle.textContent = 'Run Summary';
+      overlaySubtitle.textContent = 'Nice run! Here’s what happened:';
+      overlayHowTo.style.display = 'none';
+      bigStart.textContent = 'Restart';
+      btnCloseShop.style.display = '';
+      sumScore.textContent = data.score||0;
+      sumCoins.textContent = data.coins||0;
+      sumCredits.textContent = data.credits||0;
+      sumBoosts.textContent = data.boosts||0;
+      sumFunny.textContent = data.funny||'';
     }
     titleOverlay.classList.remove('hidden');
     refreshShop();
+    applySettingsUI();
   }
   function hideOverlay(){ titleOverlay.classList.add('hidden'); }
 
@@ -324,7 +395,7 @@
   function drawPlayer(p){ ctx.save(); p.tilt += ((p.vx/7)-p.tilt)*0.1; const cx=p.x+p.w*0.5, cy=p.y+p.h*0.5; ctx.translate(cx,cy); ctx.rotate(p.tilt*0.25); ctx.scale(p.scale,p.scale); ctx.translate(-cx,-cy); const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h); grad.addColorStop(0,selectedShip.color1); grad.addColorStop(1,selectedShip.color2); ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(p.x+p.w*0.5,p.y); ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85); ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(173,216,230,0.65)'; ctx.beginPath(); ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2); ctx.fill(); const pulseC = 0.5 + 0.5 * Math.sin(Date.now()/600); ctx.strokeStyle = `rgba(173,216,230,${0.4+0.4*pulseC})`; ctx.lineWidth = 3; ctx.stroke(); if(state.grace>0){ ctx.globalAlpha = 0.5 + 0.5*Math.sin(Date.now()/60); ctx.fill(); ctx.globalAlpha=1; } ctx.restore(); }
   function drawObstacle(o){ ctx.save(); ctx.translate(o.x+o.w/2,o.y+o.h/2); ctx.rotate(o.rot||0); ctx.fillStyle='#94a3b8'; const x=-o.w/2,y=-o.h/2,r=6; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+o.w,y,x+o.w,y+o.h,r); ctx.arcTo(x+o.w,y+o.h,x,y+o.h,r); ctx.arcTo(x,y+o.h,x,y,r); ctx.arcTo(x,y,x+o.w,y,r); ctx.closePath(); ctx.fill(); ctx.restore(); }
   function drawCoin(c){ ctx.save(); ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); const g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r); g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#fbbf24'); ctx.fillStyle=g; ctx.fill(); const pulse = 0.5 + 0.5 * Math.sin(Date.now()/500); ctx.strokeStyle = `rgba(255,215,0,${0.3+0.5*pulse})`; ctx.lineWidth = 4; ctx.stroke(); ctx.restore(); }
-  function drawBoost(b){ ctx.save(); const r=b.r; const x=b.x, y=b.y; const g=ctx.createRadialGradient(x,y,1,x,y,r); g.addColorStop(0,'#a7f3d0'); g.addColorStop(1,'#22d3ee'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.shadowColor='#67e8f9'; ctx.shadowBlur=12; ctx.lineWidth=2; ctx.strokeStyle='rgba(34,211,238,0.8)'; ctx.stroke(); ctx.fillStyle='#0ea5b7'; ctx.beginPath(); ctx.moveTo(x-2, y-r*0.6); ctx.lineTo(x+3, y-2); ctx.lineTo(x-4, y-1); ctx.lineTo(x+2, y+r*0.6); ctx.lineTo(x-3, y+2); ctx.lineTo(x+4, y+1); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  function drawBoost(b){ ctx.save(); const r=b.r; const x=b.x, y=b.y; const g=ctx.createRadialGradient(x,y,1,x,y,r); g.addColorStop(0,'#a7f3d0'); g.addColorStop(1,'#22d3ee'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='rgba(34,211,238,0.8)'; ctx.stroke(); ctx.fillStyle='#0ea5b7'; ctx.beginPath(); ctx.moveTo(x-2, y-r*0.6); ctx.lineTo(x+3, y-2); ctx.lineTo(x-4, y-1); ctx.lineTo(x+2, y+r*0.6); ctx.lineTo(x-3, y+2); ctx.lineTo(x+4, y+1); ctx.closePath(); ctx.fill(); ctx.restore(); }
 
   // ===== Trail (boost-only) =====
   function addTrail(){ if(!state.boostActive) return; const cx = state.player.x + state.player.w*0.5; const cy = state.player.y + state.player.h*0.75; state.trail.push({x:cx, y:cy}); if(state.trail.length>22) state.trail.shift(); }
@@ -333,7 +404,7 @@
   // ===== HUD =====
   function drawHUD(){ drawTextOutlined(ctx, `Score: ${state.score}`, 16, 28, { size: 16, weight: 800, align:'left' }); if(state.boostActive){ drawTextOutlined(ctx, 'BOOST!', W-16, 28, { size: 16, weight: 800, align:'right', fill:'#a7f3d0' }); } }
   function drawStart(){ drawSpace(); drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.34, { size: 28, weight: 800, align:'center' }); drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.42, { size: 16, weight: 700, align:'center' }); drawTextOutlined(ctx, `Credits: ${totalCredits}`, W/2, H*0.50, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' }); }
-  function drawGameOverWithMsg(msg){ drawSpace(); drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); } const bx=W/2-70, by=H*0.65-22, bw=140, bh=44; ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,bw,bh); ctx.save(); ctx.shadowColor='rgba(255,255,255,0.9)'; ctx.shadowBlur=12; const pulse=0.5+0.5*Math.sin(Date.now()/400); ctx.strokeStyle=`rgba(255,255,255,${0.5+0.5*pulse})`; ctx.lineWidth=3; ctx.strokeRect(bx,by,bw,bh); ctx.restore(); drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' }); state.restartBtn={x:bx,y:by,w:bw,h:bh}; if(!state.running) requestAnimationFrame(()=> drawGameOverWithMsg(msg)); }
+  function drawGameOverWithMsg(msg){ drawSpace(); drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); } const bx=W/2-70, by=H*0.65-22, bw=140, bh=44; ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,bw,bh); ctx.save(); const pulse=0.5+0.5*Math.sin(Date.now()/400); ctx.strokeStyle=`rgba(255,255,255,${0.5+0.5*pulse})`; ctx.lineWidth=3; ctx.strokeRect(bx,by,bw,bh); ctx.restore(); drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' }); state.restartBtn={x:bx,y:by,w:bw,h:bh}; if(!state.running) requestAnimationFrame(()=> drawGameOverWithMsg(msg)); }
 
   // ===== Helpers =====
   function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
@@ -353,13 +424,14 @@
   window.addEventListener('touchmove', (e)=>{ if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault(); }, {passive:false});
 
   btnPause.addEventListener('click', ()=> togglePause());
-  function togglePause(){ if(!state.running) return; state.paused = !state.paused; btnPause.textContent = state.paused ? 'Resume' : 'Pause'; if(state.paused){ showOverlay('shop'); } else { hideOverlay(); last=performance.now(); requestAnimationFrame(loop); } }
-
-  btnShop.addEventListener('click', ()=>{ if(state.running){ if(!state.paused) togglePause(); else showOverlay('shop'); } else { showOverlay('start'); } });
-  btnCloseShop.addEventListener('click', ()=>{ hideOverlay(); if(state.running){ state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } });
+  btnShop .addEventListener('click', ()=>{ if(state.running){ if(!state.paused) togglePause(); else showOverlay('shop'); } else { showOverlay('start'); } });
+  btnSettings.addEventListener('click', ()=>{ if(state.running){ state.paused=true; btnPause.textContent='Resume'; showOverlay('settings'); } else { showOverlay('settings'); } });
+  chkDrag.addEventListener('change', ()=>{ settings.drag = chkDrag.checked; saveSettings(); });
+  chkTouchBtns.addEventListener('change', ()=>{ settings.showTouch = chkTouchBtns.checked; saveSettings(); updateTouchButtonsVisibility(); });
 
   btnStart.addEventListener('click', start);
-  if (bigStart) bigStart.addEventListener('click', ()=>{ if(overlayMode==='start'){ start(); } else { hideOverlay(); if(state.running){ state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } else { start(); } } });
+  if (bigStart) bigStart.addEventListener('click', ()=>{ if(summaryPanel.style.display!=='none'){ hideOverlay(); start(); } else if(overlayHowTo.style.display===''){ start(); } else { hideOverlay(); state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } });
+  btnCloseShop.addEventListener('click', ()=>{ hideOverlay(); if(state.running){ state.paused=false; btnPause.textContent='Pause'; last=performance.now(); requestAnimationFrame(loop); } });
 
   // ===== Start / Reset =====
   async function start(){
@@ -367,7 +439,9 @@
     state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0; state.boostTimer=9000+Math.random()*4000;
     state.obstacles.length=0; state.coins.length=0; state.boosts.length=0; state.restartBtn=null; state.trail.length=0;
     state.boostActive=false; state.boostTime=0; state.boostMultiplier=1; state.grace=0;
-    state.shieldCharges = upgrades.shield; // starting shields from upgrade
+    state.shieldCharges = upgrades.shield;
+
+    runStats = { coins:0, credits:0, boosts:0, startTime:performance.now(), endTime:0 };
 
     const pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
     state.player.w=pw; state.player.h=pw; state.player.scale=1; state.player.vx=0; state.player.tilt=0;
@@ -396,21 +470,23 @@
     state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin; spawnCoin(); }
     state.boostTimer -= dt; if(state.boostTimer<=0){ state.boostTimer=9000+Math.random()*5000; spawnBoost(); }
 
-    // movement (smoothed but responsive)
+    // movement (smoothed and slowed)
     const dir = (state.input.right?1:0) - (state.input.left?1:0);
-    const baseSpeed = Math.max(0.1, W*0.0006) * (2 + selectedDifficulty.speed*0.8); // px/ms
-    const targetVx = dir * baseSpeed; // px/ms
-    // critically damped-ish smoothing: quick to respond, very little slide
-    state.player.vx += (targetVx - state.player.vx) * 0.22; // tune 0.15..0.35
+    const baseSpeed = Math.max(0.08, W*0.0005) * (1.5 + selectedDifficulty.speed*0.6); // px/ms (slow)
+    const targetVx = dir * baseSpeed;                        // px/ms
+    state.player.vx += (targetVx - state.player.vx) * 0.22;  // smoothing
     if(dir===0 && Math.abs(state.player.vx) < 0.002) state.player.vx = 0;
     state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + state.player.vx * dt));
+
+    // pointer drag (mouse/finger)
+    // handled by event listeners; we only clamp above every frame
 
     // entities motion
     for(const o of state.obstacles){ o.y+=o.vy; o.rot+=o.vr; }
     for(const c of state.coins) c.y+=c.vy;
     for(const b of state.boosts) b.y+=b.vy;
 
-    // magnet (upgrades.magnet)
+    // magnet
     if(upgrades.magnet>0){
       const r = 30 + upgrades.magnet*40; // radius
       for(const c of state.coins){ const dx=state.player.x+state.player.w/2 - c.x; const dy=state.player.y+state.player.h/2 - c.y; const d2=dx*dx+dy*dy; if(d2<r*r){ c.x += dx*0.04; c.y += dy*0.04; } }
@@ -426,8 +502,8 @@
     if(state.grace<=0 && !state.boostActive){
       for(const o of state.obstacles){ if(rectsOverlap(state.player,o)){ if(state.shieldCharges>0){ state.shieldCharges--; state.grace=800; tone(240,0.2,'sawtooth',0.08); break; } else { gameOver(); return; } } }
     }
-    for(let i=state.coins.length-1;i>=0;i--){ const c=state.coins[i]; if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); totalCredits += 1; setLS('meteorDash_credits', totalCredits); elCredits.textContent = `Credits: ${totalCredits}`; tone(1000,0.08,'triangle',0.06); } }
-    for(let i=state.boosts.length-1;i>=0;i--){ const b=state.boosts[i]; if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ state.boosts.splice(i,1); state.boostActive=true; const extra = upgrades.boost*500; state.boostTime=2500+extra; state.boostMultiplier=2 + upgrades.boost*0.2; tone(1400,0.12,'sawtooth',0.07); } }
+    for(let i=state.coins.length-1;i>=0;i--){ const c=state.coins[i]; if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); const earned = 1 + (upgrades.coin||0); totalCredits += earned; runStats.coins += 1; runStats.credits += earned; setLS('meteorDash_credits', totalCredits); elCredits.textContent = `Credits: ${totalCredits}`; tone(1000,0.08,'triangle',0.06); } }
+    for(let i=state.boosts.length-1;i>=0;i--){ const b=state.boosts[i]; if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ state.boosts.splice(i,1); state.boostActive=true; const extra = upgrades.boost*500; state.boostTime=2500+extra; state.boostMultiplier=2 + upgrades.boost*0.2; runStats.boosts += 1; tone(1400,0.12,'sawtooth',0.07); } }
 
     // score
     state.score += Math.floor(0.02*dt*selectedDifficulty.multiplier*state.boostMultiplier);
@@ -450,19 +526,29 @@
 
   function gameOver(){
     tone(160,0.25,'square',0.09);
-    state.running=false; btnPause.disabled=true; btnShop.disabled=false; // shop stays available on game over
+    state.running=false; btnPause.disabled=true; btnShop.disabled=false;
     const msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
     ctx.save(); ctx.fillStyle='rgba(255,100,0,0.5)'; ctx.beginPath(); ctx.arc(state.player.x+state.player.w/2, state.player.y+state.player.h/2, 80, 0, Math.PI*2); ctx.fill(); ctx.restore();
     drawGameOverWithMsg(msg);
     canvas.addEventListener('click', onRestartClick);
+    runStats.endTime = performance.now();
+    showOverlay('summary', { score: state.score, coins: runStats.coins, credits: runStats.credits, boosts: runStats.boosts, funny: msg });
   }
   function onRestartClick(e){ const rect = canvas.getBoundingClientRect(); const mx = (e.clientX-rect.left), my=(e.clientY-rect.top); if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){ canvas.removeEventListener('click', onRestartClick); start(); } }
+
+  // Pointer drag control (mouse/finger)
+  let dragging = false;
+  function pointerToX(ev){ const rect = canvas.getBoundingClientRect(); const clientX = (ev.touches? ev.touches[0].clientX : ev.clientX); const x = clientX - rect.left; return Math.max(0, Math.min(W - state.player.w, x - state.player.w*0.5)); }
+  canvas.addEventListener('pointerdown', (e)=>{ if(!settings.drag) return; dragging=true; state.input.left=false; state.input.right=false; state.player.x = pointerToX(e); canvas.setPointerCapture?.(e.pointerId); });
+  canvas.addEventListener('pointermove', (e)=>{ if(!settings.drag || !dragging) return; state.player.x = pointerToX(e); });
+  canvas.addEventListener('pointerup',   (e)=>{ if(!settings.drag) return; dragging=false; try{ canvas.releasePointerCapture?.(e.pointerId); }catch(_){ } });
 
   // Kick off
   resize();
   rebuildStars(true);
   drawStart();
   showOverlay('start');
+  applySettingsUI();
 
   // Diagnostics
   bgMusic?.addEventListener('canplaythrough', ()=> console.log('Music ready:', bgMusic.currentSrc));
