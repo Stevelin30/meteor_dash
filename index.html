@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Meteor Dash — Stable Final (Levels + Difficulty + Shop + Settings)</title>
+<title>Meteor Run — Stable Final (Levels + Difficulty + Shop + Settings)</title>
 <style>
   :root{ --bg:#0b1020; --fg:#e2e8f0; }
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; }
@@ -77,7 +77,7 @@
   <canvas id="canvas"></canvas>
 
   <footer>
-    <span>© stevelin30 productions · v1.0</span>
+    <span>© Meteor Run · v1.0</span>
     <span>Move: ← → or A/D · Drag/Touch available</span>
     <span>Pause: P/Esc · Restart: R</span>
   </footer>
@@ -86,8 +86,10 @@
 <!-- Overlay -->
 <div id="titleOverlay">
   <div class="card">
-    <h1 id="overlayTitle">stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span></h1>
-    <p id="overlaySubtitle">Meteor Dash — Outrun the debris. Grab coins. Try not to explode.</p>
+    <!-- Logo Image -->
+    <img src="logo_1.png" alt="Game Logo" style="max-width:180px; margin:0 auto 10px; display:block;" />
+
+    <p id="overlaySubtitle">Meteor Run — Outrun the debris. Grab coins. Try not to explode.</p>
     <p class="muted" id="overlayHowTo"><em>How to Play: Use ← → (A/D), on-screen buttons, or drag with mouse/finger.</em></p>
 
     <div class="overlay-sections">
@@ -236,7 +238,6 @@
   var difficultySelect = document.getElementById('difficultySelect');
 
   var titleOverlay = document.getElementById('titleOverlay');
-  var overlayTitle = document.getElementById('overlayTitle');
   var overlaySubtitle = document.getElementById('overlaySubtitle');
   var overlayHowTo = document.getElementById('overlayHowTo');
   var bigStart = document.getElementById('bigStart');
@@ -260,13 +261,13 @@
   function setLS(key, val){ 
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){ } 
   }
-  var hi = getLS('meteorDash_hi', 0);
-  var totalCredits = getLS('meteorDash_credits', 0);
-  var upgrades = getLS('meteorDash_upgrades', { magnet:0, shield:0, boost:0, coin:0 });
-  var settings = getLS('meteorDash_settings', { drag:true, showTouch:true });
+  var hi = getLS('meteorRun_hi', 0);
+  var totalCredits = getLS('meteorRun_credits', 0);
+  var upgrades = getLS('meteorRun_upgrades', { magnet:0, shield:0, boost:0, coin:0 });
+  var settings = getLS('meteorRun_settings', { drag:true, showTouch:true });
   elHi.textContent = 'Best: '+hi;
   elCredits.textContent = 'Credits: '+totalCredits;
-  function saveSettings(){ setLS('meteorDash_settings', settings); }
+  function saveSettings(){ setLS('meteorRun_settings', settings); }
   function applySettingsUI(){ 
     chkDrag.checked = !!settings.drag; 
     chkTouchBtns.checked = !!settings.showTouch; 
@@ -305,8 +306,8 @@
     if(totalCredits < cost) return;
     totalCredits -= cost;
     upgrades[name] += 1;
-    setLS('meteorDash_credits', totalCredits);
-    setLS('meteorDash_upgrades', upgrades);
+    setLS('meteorRun_credits', totalCredits);
+    setLS('meteorRun_upgrades', upgrades);
     refreshShop();
   }
   document.getElementById('btnBuyMagnet').onclick=function(){buy('magnet');};
@@ -405,7 +406,7 @@
     difficultySelect.appendChild(b); 
   });
 
-  // ===== Dynamic Level Scaling (slower meteors) =====
+  // ===== Dynamic Level Scaling (gentler curve) =====
   var LEVEL_STEP = 100; // every 100 score = +1 level
   function getLevelFromScore(score){ return Math.max(1, Math.floor(score/LEVEL_STEP)+1); }
   function getMeteorMul(){ 
@@ -421,216 +422,10 @@
     var factor = Math.max(0.65, 1 - 0.03*(state.level-1)); 
     return Math.round(s*factor); 
   }
-  /* =========================
-   * TEXT HELPERS (Outlined)
-   * ========================= */
-  function setBoldFont(size, weight){ 
-    if(size==null) size=16; 
-    if(weight==null) weight=800; 
-    return weight+' '+size+'px ui-sans-serif,system-ui'; 
-  }
-  function drawTextOutlined(ctx, text, x, y, opts){
-    opts = opts||{};
-    var size=opts.size==null?16:opts.size, 
-        weight=opts.weight==null?800:opts.weight, 
-        align=opts.align||'left', 
-        baseline=opts.baseline||'alphabetic', 
-        fill=opts.fill||'#ffffff', 
-        outline=opts.outline||'rgba(0,0,0,0.85)', 
-        outlineWidth=opts.outlineWidth==null?4:opts.outlineWidth;
-    ctx.save(); 
-    ctx.font = setBoldFont(size, weight); 
-    ctx.textAlign = align; 
-    ctx.textBaseline = baseline; 
-    ctx.lineJoin = 'round'; 
-    ctx.miterLimit = 2; 
-    ctx.strokeStyle = outline; 
-    ctx.lineWidth = outlineWidth; 
-    ctx.strokeText(text, x, y); 
-    ctx.fillStyle = fill; 
-    ctx.fillText(text, x, y); 
-    ctx.restore();
-  }
+  // ===== Title ref (logo container already in HTML) =====
+  var overlayTitle = document.getElementById('overlayTitle');
 
-  /* =========================
-   * BACKGROUND / STARS
-   * ========================= */
-  var starsFG=[], starsMG=[], starsBG=[];
-  function rebuildStars(reset){ 
-    if(!reset) return; 
-    var dens=0.22; // subtle density (independent of difficulty color to simplify)
-    function make(n){ var a=[]; for(var i=0;i<n;i++) a.push({x:Math.random()*W,y:Math.random()*H}); return a; } 
-    var nBG=Math.floor(W*H*dens/160), 
-        nMG=Math.floor(W*H*dens/120), 
-        nFG=Math.floor(W*H*dens/95); 
-    starsBG=make(nBG); starsMG=make(nMG); starsFG=make(nFG); 
-  }
-  function drawSpace(){ 
-    var g=ctx.createRadialGradient(W*0.7,H*0.2,Math.min(W,H)*0.1, W*0.5,H*0.8, Math.hypot(W,H)*0.6); 
-    g.addColorStop(0, '#12183b'); 
-    g.addColorStop(1, '#0b1020'); 
-    ctx.fillStyle=g; 
-    ctx.fillRect(0,0,W,H); 
-    ctx.fillStyle='#fff'; 
-    var i, s;
-    for(i=0;i<starsBG.length;i++){ s=starsBG[i]; ctx.fillRect(s.x,s.y,1,1); s.y+=0.10; if(s.y>H) s.y=0; }
-    for(i=0;i<starsMG.length;i++){ s=starsMG[i]; ctx.fillRect(s.x,s.y,2,2); s.y+=0.35; if(s.y>H) s.y=0; }
-    for(i=0;i<starsFG.length;i++){ s=starsFG[i]; ctx.fillRect(s.x,s.y,3,3); s.y+=0.7;  if(s.y>H) s.y=0; }
-  }
-
-  /* =========================
-   * DRAW ENTITIES
-   * ========================= */
-  function drawPlayer(p){ 
-    ctx.save(); 
-    p.tilt += ((p.vx/7)-p.tilt)*0.1; 
-    var cx=p.x+p.w*0.5, cy=p.y+p.h*0.5; 
-    ctx.translate(cx,cy); 
-    ctx.rotate(p.tilt*0.25); 
-    ctx.scale(p.scale,p.scale); 
-    ctx.translate(-cx,-cy); 
-    var grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h); 
-    grad.addColorStop(0,selectedShip.color1); 
-    grad.addColorStop(1,selectedShip.color2); 
-    ctx.fillStyle=grad; 
-    ctx.beginPath(); 
-    ctx.moveTo(p.x+p.w*0.5,p.y); 
-    ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85); 
-    ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85); 
-    ctx.closePath(); 
-    ctx.fill(); 
-    ctx.fillStyle='rgba(173,216,230,0.65)'; 
-    ctx.beginPath(); 
-    ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2); 
-    ctx.fill(); 
-    var pulseC = 0.5 + 0.5 * Math.sin(Date.now()/600); 
-    ctx.strokeStyle = 'rgba(173,216,230,'+(0.4+0.4*pulseC)+')'; 
-    ctx.lineWidth = 3; 
-    ctx.stroke(); 
-    if(state.grace>0){ ctx.globalAlpha = 0.5 + 0.5*Math.sin(Date.now()/60); ctx.fill(); ctx.globalAlpha=1; } 
-    ctx.restore(); 
-  }
-  function drawObstacle(o){ 
-    ctx.save(); 
-    ctx.translate(o.x+o.w/2,o.y+o.h/2); 
-    ctx.rotate(o.rot||0); 
-    ctx.fillStyle='#94a3b8'; 
-    var x=-o.w/2,y=-o.h/2,r=6; 
-    ctx.beginPath(); 
-    ctx.moveTo(x+r,y); 
-    ctx.arcTo(x+o.w,y,x+o.w,y+o.h,r); 
-    ctx.arcTo(x+o.w,y+o.h,x,y+o.h,r); 
-    ctx.arcTo(x,y+o.h,x,y,r); 
-    ctx.arcTo(x,y,x+o.w,y,r); 
-    ctx.closePath(); 
-    ctx.fill(); 
-    ctx.restore(); 
-  }
-  function drawCoin(c){ 
-    ctx.save(); 
-    ctx.beginPath(); 
-    ctx.arc(c.x,c.y,c.r,0,Math.PI*2); 
-    var g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r); 
-    g.addColorStop(0,'#fde68a'); 
-    g.addColorStop(1,'#fbbf24'); 
-    ctx.fillStyle=g; 
-    ctx.fill(); 
-    var pulse = 0.5 + 0.5 * Math.sin(Date.now()/500); 
-    ctx.strokeStyle = 'rgba(255,215,0,'+(0.3+0.5*pulse)+')'; 
-    ctx.lineWidth = 4; 
-    ctx.stroke(); 
-    ctx.restore(); 
-  }
-  function drawBoost(b){ 
-    ctx.save(); 
-    var r=b.r; 
-    var x=b.x, y=b.y; 
-    var g=ctx.createRadialGradient(x,y,1,x,y,r); 
-    g.addColorStop(0,'#a7f3d0'); 
-    g.addColorStop(1,'#22d3ee'); 
-    ctx.fillStyle=g; 
-    ctx.beginPath(); 
-    ctx.arc(x,y,r,0,Math.PI*2); 
-    ctx.fill(); 
-    ctx.lineWidth=2; 
-    ctx.strokeStyle='rgba(34,211,238,0.8)'; 
-    ctx.stroke(); 
-    ctx.fillStyle='#0ea5b7'; 
-    ctx.beginPath(); 
-    ctx.moveTo(x-2, y-r*0.6); 
-    ctx.lineTo(x+3, y-2); 
-    ctx.lineTo(x-4, y-1); 
-    ctx.lineTo(x+2, y+r*0.6); 
-    ctx.lineTo(x-3, y+2); 
-    ctx.lineTo(x+4, y+1); 
-    ctx.closePath(); 
-    ctx.fill(); 
-    ctx.restore(); 
-  }
-
-  /* ===== Trail (boost-only) ===== */
-  var trailMax = 22;
-  function addTrail(){ 
-    if(!state.boostActive) return; 
-    var cx = state.player.x + state.player.w*0.5; 
-    var cy = state.player.y + state.player.h*0.75; 
-    state.trail.push({x:cx, y:cy}); 
-    if(state.trail.length>trailMax) state.trail.shift(); 
-  }
-  function drawTrail(){ 
-    if(!state.trail.length) return; 
-    ctx.save(); 
-    for(var i=1;i<state.trail.length;i++){ 
-      var a = state.trail[i-1], b = state.trail[i]; 
-      var t = i/state.trail.length; 
-      var alpha = 0.08 + 0.6 * t * (state.boostActive?1:0.3); 
-      ctx.strokeStyle = 'rgba(103, 232, 249, '+alpha+')'; 
-      ctx.lineWidth = 6 * t; 
-      ctx.beginPath(); 
-      ctx.moveTo(a.x,a.y); 
-      ctx.lineTo(b.x,b.y); 
-      ctx.stroke(); 
-    } 
-    ctx.restore(); 
-  }
-
-  /* =========================
-   * HUD / SCREENS
-   * ========================= */
-  function drawHUD(){
-    drawTextOutlined(ctx, 'Score: '+state.score, 16, 28, { size: 16, weight: 800, align:'left' });
-    drawTextOutlined(ctx, 'Lvl '+state.level, W/2, 28, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' });
-    if(state.boostActive){ drawTextOutlined(ctx, 'BOOST!', W-16, 28, { size: 16, weight: 800, align:'right', fill:'#a7f3d0' }); }
-    if(state.levelFlash>0){ drawTextOutlined(ctx, 'LEVEL '+state.level+'!', W/2, 64, { size: 22, weight: 900, align:'center' }); }
-  }
-  function drawStart(){ 
-    drawSpace(); 
-    drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.34, { size: 28, weight: 800, align:'center' }); 
-    drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.42, { size: 16, weight: 700, align:'center' }); 
-    drawTextOutlined(ctx, 'Credits: '+totalCredits, W/2, H*0.50, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' }); 
-  }
-  function drawGameOverWithMsg(msg){ 
-    drawSpace(); 
-    drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); 
-    drawTextOutlined(ctx, 'Score: '+state.score, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); 
-    if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); } 
-    var bx=W/2-70, by=H*0.65-22, bw=140, bh=44; 
-    ctx.fillStyle='rgba(255,255,255,0.12)'; 
-    ctx.fillRect(bx,by,bw,bh); 
-    ctx.save(); 
-    var pulse=0.5+0.5*Math.sin(Date.now()/400); 
-    ctx.strokeStyle='rgba(255,255,255,'+(0.5+0.5*pulse)+')'; 
-    ctx.lineWidth=3; 
-    ctx.strokeRect(bx,by,bw,bh); 
-    ctx.restore(); 
-    drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' }); 
-    state.restartBtn={x:bx,y:by,w:bw,h:bh}; 
-    if(!state.running) requestAnimationFrame(function(){ drawGameOverWithMsg(msg); }); 
-  }
-
-  /* =========================
-   * OVERLAY HELPERS
-   * ========================= */
+  // ===== Funny game-over lines =====
   var funnyDeaths = [
     "Oops… your insurance premium just skyrocketed!",
     "Houston, we have a YOU problem.",
@@ -642,34 +437,52 @@
     "Meteor 1, You 0.",
     "The galaxy says: better luck next run!"
   ];
+
+  // ===== Game State =====
+  var state = {
+    running:false, paused:false, t:0, score:0,
+    speed: (selectedDifficulty && selectedDifficulty.speed) || 2.3,
+    spawnTimer:0, coinTimer:0, boostTimer:9000,
+    player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1},
+    obstacles:[], coins:[], boosts:[],
+    input:{left:false,right:false},
+    restartBtn:null,
+    boostActive:false, boostTime:0, boostMultiplier:1,
+    trail:[],
+    shieldCharges: 0,
+    grace: 0,
+    level: 1,
+    levelFlash: 0
+  };
+  var runStats = { coins:0, credits:0, boosts:0, startTime:0, endTime:0 };
   var overlayMode = 'start';
+
+  // ===== Overlay helpers =====
   function showOverlay(mode, data){
     if(mode==null) mode='start'; data=data||{}; overlayMode=mode;
     settingsPanel.style.display = '';
     summaryPanel.style.display = 'none';
+
     if(mode==='start'){
-      overlayTitle.innerHTML = "stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span>";
-      overlaySubtitle.textContent = 'Meteor Dash — Outrun the debris. Grab coins. Try not to explode.';
+      // Logo is already visible inside #overlayTitle (img)
+      overlaySubtitle.textContent = 'Meteor Run — Outrun the debris. Grab coins. Try not to explode.';
       overlayHowTo.style.display = '';
       bigStart.textContent = 'Start';
       btnCloseShop.style.display = 'none';
     } else if(mode==='shop'){
-      overlayTitle.textContent = 'Upgrade Shop';
-      overlaySubtitle.textContent = 'Spend credits to power up. Upgrades persist across runs.';
+      overlaySubtitle.textContent = 'Upgrade Shop — Upgrades persist across runs.';
       overlayHowTo.style.display = 'none';
       bigStart.textContent = state.running ? 'Resume' : 'Start';
       btnCloseShop.style.display = '';
     } else if(mode==='settings'){
-      overlayTitle.textContent = 'Settings';
-      overlaySubtitle.textContent = 'Customize controls and HUD.';
+      overlaySubtitle.textContent = 'Settings — Customize controls and HUD.';
       overlayHowTo.style.display = 'none';
       bigStart.textContent = state.running ? 'Resume' : 'Start';
       btnCloseShop.style.display = state.running ? '' : 'none';
     } else if(mode==='summary'){
       settingsPanel.style.display = 'none';
       summaryPanel.style.display = '';
-      overlayTitle.textContent = 'Run Summary';
-      overlaySubtitle.textContent = 'Nice run! Here’s what happened:';
+      overlaySubtitle.textContent = 'Run Summary';
       overlayHowTo.style.display = 'none';
       bigStart.textContent = 'Restart';
       btnCloseShop.style.display = '';
@@ -685,236 +498,206 @@
   }
   function hideOverlay(){ titleOverlay.classList.add('hidden'); }
 
-  /* =========================
-   * STATE
-   * ========================= */
-  var state = {
-    running:false, paused:false, t:0, score:0, speed: (selectedDifficulty?selectedDifficulty.speed:2.3),
-    spawnTimer:0, coinTimer:0,
-    player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1},
-    obstacles:[], coins:[], boosts:[],
-    input:{left:false,right:false},
-    restartBtn:null,
-    boostTimer: 10000, boostActive:false, boostTime:0, boostMultiplier:1,
-    trail:[],
-    shieldCharges: 0,
-    grace: 0,
-    level: 1,
-    levelFlash: 0
-  };
-  var runStats = { coins:0, credits:0, boosts:0, startTime:0, endTime:0 };
+  // ===== Background stars (simple) =====
+  var stars = [];
+  function rebuildStars(){
+    stars = [];
+    var count = Math.max(80, Math.floor((W*H)/15000));
+    for(var i=0;i<count;i++){
+      stars.push({x:Math.random()*W, y:Math.random()*H, s:Math.random()*2+0.5, v:0.15+Math.random()*0.35});
+    }
+  }
+  function drawSpace(){
+    // subtle vertical gradient
+    var g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0b1020');
+    g.addColorStop(1,'#101733');
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,H);
 
-  /* =========================
-   * HELPERS
-   * ========================= */
+    ctx.fillStyle='#ffffff';
+    for(var i=0;i<stars.length;i++){
+      var st = stars[i];
+      ctx.globalAlpha = 0.6 + 0.4*Math.sin((state.t*0.002 + i)%Math.PI);
+      ctx.fillRect(st.x, st.y, st.s, st.s);
+      st.y += st.v;
+      if(st.y>H){ st.y = -2; st.x = Math.random()*W; }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ===== Draw entities =====
+  function drawPlayer(p){
+    ctx.save();
+    p.tilt += ((p.vx/7)-p.tilt)*0.1;
+    var cx=p.x+p.w*0.5, cy=p.y+p.h*0.5;
+    ctx.translate(cx,cy);
+    ctx.rotate(p.tilt*0.25);
+    ctx.scale(p.scale,p.scale);
+    ctx.translate(-cx,-cy);
+
+    var grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h);
+    grad.addColorStop(0,selectedShip.color1);
+    grad.addColorStop(1,selectedShip.color2);
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.moveTo(p.x+p.w*0.5,p.y);
+    ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85);
+    ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle='rgba(173,216,230,0.65)';
+    ctx.beginPath();
+    ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2);
+    ctx.fill();
+
+    if(state.grace>0){
+      ctx.globalAlpha = 0.5 + 0.5*Math.sin(Date.now()/60);
+      ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    ctx.restore();
+  }
+  function drawObstacle(o){
+    ctx.save();
+    ctx.translate(o.x+o.w/2,o.y+o.h/2);
+    ctx.rotate(o.rot||0);
+    ctx.fillStyle='#94a3b8';
+    var x=-o.w/2,y=-o.h/2,r=6;
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+o.w,y,x+o.w,y+o.h,r);
+    ctx.arcTo(x+o.w,y+o.h,x,y+o.h,r);
+    ctx.arcTo(x,y+o.h,x,y,r);
+    ctx.arcTo(x,y,x+o.w,y,r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  function drawCoin(c){
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+    var g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r);
+    g.addColorStop(0,'#fde68a');
+    g.addColorStop(1,'#fbbf24');
+    ctx.fillStyle=g;
+    ctx.fill();
+    ctx.lineWidth=2;
+    ctx.strokeStyle='rgba(255,215,0,0.8)';
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawBoost(b){
+    ctx.save();
+    var r=b.r; var x=b.x, y=b.y;
+    var g=ctx.createRadialGradient(x,y,1,x,y,r);
+    g.addColorStop(0,'#a7f3d0');
+    g.addColorStop(1,'#22d3ee');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='rgba(34,211,238,0.8)'; ctx.stroke();
+    ctx.restore();
+  }
+
+  // ===== Trail (boost-only) =====
+  function addTrail(){ 
+    if(!state.boostActive) return; 
+    var cx = state.player.x + state.player.w*0.5; 
+    var cy = state.player.y + state.player.h*0.8; 
+    state.trail.push({x:cx, y:cy}); 
+    if(state.trail.length>22) state.trail.shift(); 
+  }
+  function drawTrail(){ 
+    if(!state.trail.length) return; 
+    ctx.save(); 
+    for(var i=1;i<state.trail.length;i++){ 
+      var a = state.trail[i-1], b = state.trail[i]; 
+      var t = i/state.trail.length; 
+      var alpha = 0.06 + 0.5 * t; 
+      ctx.strokeStyle = 'rgba(103,232,249,'+alpha+')'; 
+      ctx.lineWidth = 6 * t; 
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); 
+    } 
+    ctx.restore(); 
+  }
+
+  // ===== HUD / Start & Over screens =====
+  function drawTextOutlined(ctx, text, x, y, opts){
+    opts = opts||{};
+    var size=opts.size==null?16:opts.size, weight=opts.weight==null?800:opts.weight, 
+        align=opts.align||'left', baseline=opts.baseline||'alphabetic',
+        fill=opts.fill||'#ffffff', outline=opts.outline||'rgba(0,0,0,0.85)', outlineWidth=opts.outlineWidth==null?4:opts.outlineWidth;
+    ctx.save(); 
+    ctx.font = weight+' '+size+'px ui-sans-serif,system-ui'; 
+    ctx.textAlign = align; ctx.textBaseline = baseline; 
+    ctx.lineJoin = 'round'; ctx.miterLimit = 2; 
+    ctx.strokeStyle = outline; ctx.lineWidth = outlineWidth; 
+    ctx.strokeText(text, x, y); 
+    ctx.fillStyle = fill; ctx.fillText(text, x, y); 
+    ctx.restore();
+  }
+  function drawHUD(){
+    drawTextOutlined(ctx, 'Score: '+state.score, 16, 28, { size: 16, weight: 800, align:'left' });
+    drawTextOutlined(ctx, 'Lvl '+state.level, W/2, 28, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' });
+    if(state.boostActive){ 
+      drawTextOutlined(ctx, 'BOOST!', W-16, 28, { size: 16, weight: 800, align:'right', fill:'#a7f3d0' }); 
+    }
+    if(state.levelFlash>0){ 
+      drawTextOutlined(ctx, 'LEVEL '+state.level+'!', W/2, 64, { size: 22, weight: 900, align:'center' }); 
+    }
+  }
+  function drawStart(){ 
+    drawSpace(); 
+    drawTextOutlined(ctx, 'Meteor Run', W/2, H*0.34, { size: 28, weight: 800, align:'center' }); 
+    drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.42, { size: 16, weight: 700, align:'center' }); 
+    drawTextOutlined(ctx, 'Credits: '+totalCredits, W/2, H*0.50, { size: 16, weight: 800, align:'center', fill:'#a7f3d0' }); 
+  }
+  function drawGameOverWithMsg(msg){ 
+    drawSpace(); 
+    drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' }); 
+    drawTextOutlined(ctx, 'Score: '+state.score, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); 
+    if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); } 
+    var bx=W/2-70, by=H*0.65-22, bw=140, bh=44; 
+    ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,bw,bh); 
+    ctx.save(); var pulse=0.5+0.5*Math.sin(Date.now()/400); 
+    ctx.strokeStyle='rgba(255,255,255,'+(0.5+0.5*pulse)+')'; ctx.lineWidth=3; ctx.strokeRect(bx,by,bw,bh); ctx.restore(); 
+    drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' }); 
+    state.restartBtn={x:bx,y:by,w:bw,h:bh}; 
+    if(!state.running) requestAnimationFrame(function(){ drawGameOverWithMsg(msg); }); 
+  }
+
+  // ===== Helpers =====
   function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
-  function circleRectOverlap(c,r){ 
-    var cx=Math.max(r.x,Math.min(c.x,r.x+r.w)); 
-    var cy=Math.max(r.y,Math.min(c.y,r.y+r.h)); 
-    var dx=c.x-cx, dy=c.y-cy; 
-    return (dx*dx+dy*dy) <= (c.r*c.r); 
-  }
-  // simple tone (uses AudioContext from Part 3)
-  function tone(freq, dur, type, vol){ 
-    if(freq==null) freq=880; if(dur==null) dur=0.08; if(type==null) type='sine'; if(vol==null) vol=0.05; 
-    if(muted) return; 
-    try{ 
-      ensureAudio(); 
-      var o=ac.createOscillator(), g=ac.createGain(); 
-      o.type=type; o.frequency.value=freq; 
-      g.gain.value=vol; 
-      o.connect(g); g.connect(ac.destination); 
-      o.start(); 
-      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur); 
-      o.stop(ac.currentTime+dur); 
-    }catch(_){ } 
-  }
+  function circleRectOverlap(c,r){ var cx=Math.max(r.x,Math.min(c.x,r.x+r.w)); var cy=Math.max(r.y,Math.min(c.y,r.y+r.h)); var dx=c.x-cx, dy=c.y-cy; return (dx*dx+dy*dy) <= (c.r*c.r); }
 
-  /* =========================
-   * SPAWNING (uses slower level curve multipliers)
-   * ========================= */
+  // ===== Spawning (uses gentler dynamic multipliers) =====
   function spawnObstacle(){
     var w=28+Math.random()*42, h=w*(0.8+Math.random()*0.3);
     var x=Math.random()*(W-w), y=-h-10;
-    var m = getMeteorMul(); // slower progression from Part 3
-    var vy = (state.speed*m) + (0.4+Math.random()*1.2)*m + state.t*0.00025*m;
-    state.obstacles.push({x:x,y:y,w:w,h:h,vy:vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.05});
+    var m = getMeteorMul(); // dynamic multiplier (gentle)
+    // Base vertical speed derived from difficulty baseline, then scaled by level
+    var baseFall = state.speed * 0.9; // slightly slower base
+    var vy = (baseFall*m) + (0.4+Math.random()*1.0)*m + state.t*0.00015*m; // softer ramp
+    state.obstacles.push({x:x,y:y,w:w,h:h,vy:vy, rot:Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.04});
   }
   function spawnCoin(){
     var r=10+Math.random()*4;
     var x=r+Math.random()*(W-r*2), y=-r-10;
     var dm = getDropMul();
-    var vy=(state.speed+0.9)*dm;
+    var vy=(state.speed*0.7+0.6)*dm; // keep coins a touch slower
     state.coins.push({x:x,y:y,r:r,vy:vy});
   }
   function spawnBoost(){
     var r=12;
     var x=r+Math.random()*(W-r*2), y=-r-10;
     var dm = getDropMul();
-    var vy=(state.speed+1.2)*dm;
+    var vy=(state.speed*0.8+0.8)*dm;
     state.boosts.push({x:x,y:y,r:r,vy:vy});
   }
 
-  /* =========================
-   * START / PAUSE / LOOP
-   * ========================= */
-  var last = 0;
-  function start(){
-    state.running=true; state.paused=false; state.t=0; state.score=0;
-    state.level=1; state.levelFlash=0;
-    state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0; state.boostTimer=9000+Math.random()*4000;
-    state.obstacles.length=0; state.coins.length=0; state.boosts.length=0; state.restartBtn=null; state.trail.length=0;
-    state.boostActive=false; state.boostTime=0; state.boostMultiplier=1; state.grace=0;
-    state.shieldCharges = upgrades.shield|0;
-
-    runStats = { coins:0, credits:0, boosts:0, startTime:performance.now(), endTime:0 };
-
-    var pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
-    state.player.w=pw; state.player.h=pw; state.player.scale=1; state.player.vx=0; state.player.tilt=0;
-    state.player.x=(W-pw)/2; state.player.y=H - pw*2.2;
-
-    btnPause.disabled=false; btnShop.disabled=false; btnStart.textContent='Restart';
-    hideOverlay();
-
-    try{ ensureAudio(); if(ac.state==='suspended') ac.resume(); ensureMusicGraph(); }catch(_){ }
-    if(!muted && bgMusic){ if(bgMusic.paused){ tryPlayMusic(); } }
-
-    last=performance.now(); tone(700,0.08,'square',0.05); requestAnimationFrame(loop);
-  }
-
-  function togglePause(){
-    if(!state.running) return;
-    state.paused = !state.paused;
-    btnPause.textContent = state.paused ? 'Resume' : 'Pause';
-    if(!state.paused){ last = performance.now(); requestAnimationFrame(loop); }
-  }
-
-  function loop(now){
-    if(!state.running || state.paused) return;
-    var dt=Math.min(33, now-last); last=now; 
-    state.t+=dt; 
-    state.speed += 0.00035*dt; // slower base acceleration to match slower curve
-    if(state.grace>0) state.grace-=dt; 
-    if(state.levelFlash>0){ state.levelFlash -= dt; if(state.levelFlash<0) state.levelFlash=0; }
-
-    // timers
-    state.spawnTimer -= dt; if(state.spawnTimer<=0){ state.spawnTimer=getSpawnInterval(); spawnObstacle(); }
-    state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin;  spawnCoin(); }
-    state.boostTimer -= dt; if(state.boostTimer<=0){ state.boostTimer=9000+Math.random()*5000; spawnBoost(); }
-
-    if(state.boostActive){ state.boostTime -= dt; if(state.boostTime<=0){ state.boostActive=false; state.boostMultiplier=1; } }
-
-    // movement (smooth)
-    var dir = (state.input.right?1:0) - (state.input.left?1:0);
-    var baseSpeed = Math.max(0.08, W*0.0005) * (1.4 + selectedDifficulty.speed*0.55); // px/ms (slightly reduced)
-    var targetVx = dir * baseSpeed;
-    state.player.vx += (targetVx - state.player.vx) * 0.22;
-    if(dir===0 && Math.abs(state.player.vx) < 0.002) state.player.vx = 0;
-    state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + state.player.vx * dt));
-
-    // entities motion
-    var i, o, c, b, dx, dy, d2;
-    for(i=0;i<state.obstacles.length;i++){ o=state.obstacles[i]; o.y+=o.vy; o.rot+=o.vr; }
-    for(i=0;i<state.coins.length;i++){ c=state.coins[i]; c.y+=c.vy; }
-    for(i=0;i<state.boosts.length;i++){ b=state.boosts[i]; b.y+=b.vy; }
-
-    // magnet pull
-    if(upgrades.magnet>0){
-      var r = 30 + upgrades.magnet*40;
-      for(i=0;i<state.coins.length;i++){ c=state.coins[i]; dx=state.player.x+state.player.w/2 - c.x; dy=state.player.y+state.player.h/2 - c.y; d2=dx*dx+dy*dy; if(d2<r*r){ c.x += dx*0.04; c.y += dy*0.04; } }
-      for(i=0;i<state.boosts.length;i++){ b=state.boosts[i]; dx=state.player.x+state.player.w/2 - b.x; dy=state.player.y+state.player.h/2 - b.y; d2=dx*dx+dy*dy; if(d2<r*r){ b.x += dx*0.03; b.y += dy*0.03; } }
-    }
-
-    // cull
-    state.obstacles = state.obstacles.filter(function(o){ return o.y < H+60; });
-    state.coins     = state.coins.filter(function(c){ return c.y < H+60; });
-    state.boosts    = state.boosts.filter(function(b){ return b.y < H+60; });
-
-    // collisions
-    if(state.grace<=0 && !state.boostActive){
-      for(i=0;i<state.obstacles.length;i++){ 
-        o=state.obstacles[i]; 
-        if(rectsOverlap(state.player,o)){ 
-          if(state.shieldCharges>0){ state.shieldCharges--; state.grace=800; tone(240,0.2,'sawtooth',0.08); break; } 
-          else { gameOver(); return; } 
-        } 
-      }
-    }
-    for(i=state.coins.length-1;i>=0;i--){ 
-      c=state.coins[i]; 
-      if(circleRectOverlap(c,state.player)){ 
-        state.coins.splice(i,1); 
-        state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); 
-        var earned = 1 + (upgrades.coin||0); 
-        totalCredits += earned; 
-        runStats.coins += 1; 
-        runStats.credits += earned; 
-        setLS('meteorDash_credits', totalCredits); 
-        elCredits.textContent = 'Credits: '+totalCredits; 
-        tone(1000,0.08,'triangle',0.06); 
-      } 
-    }
-    for(i=state.boosts.length-1;i>=0;i--){ 
-      b=state.boosts[i]; 
-      if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ 
-        state.boosts.splice(i,1); 
-        state.boostActive=true; 
-        var extra = (upgrades.boost|0)*500; 
-        state.boostTime=2500+extra; 
-        state.boostMultiplier=2 + (upgrades.boost|0)*0.2; 
-        runStats.boosts += 1; 
-        tone(1400,0.12,'sawtooth',0.07); 
-      } 
-    }
-
-    // score + level
-    state.score += Math.floor(0.018*dt*selectedDifficulty.multiplier*state.boostMultiplier); // slightly reduced tick
-    var newLevel = getLevelFromScore(state.score);
-    if(newLevel !== state.level){ state.level = newLevel; state.levelFlash = 1000; tone(1200,0.08,'triangle',0.06); }
-    if(state.score>hi){ hi=state.score; setLS('meteorDash_hi', hi); elHi.textContent = 'Best: '+hi; }
-
-    // trail
-    addTrail();
-
-    // render
-    drawSpace(); 
-    drawHUD();
-    for(i=0;i<state.obstacles.length;i++) drawObstacle(state.obstacles[i]);
-    for(i=0;i<state.coins.length;i++) drawCoin(state.coins[i]);
-    for(i=0;i<state.boosts.length;i++) drawBoost(state.boosts[i]);
-    drawTrail();
-    drawPlayer(state.player);
-
-    elScore.textContent = 'Score: '+state.score;
-    requestAnimationFrame(loop);
-  }
-
-  /* =========================
-   * GAME OVER
-   * ========================= */
-  function gameOver(){
-    tone(160,0.25,'square',0.09);
-    state.running=false; btnPause.disabled=true; btnShop.disabled=false;
-    var msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
-    ctx.save(); ctx.fillStyle='rgba(255,100,0,0.5)'; ctx.beginPath(); ctx.arc(state.player.x+state.player.w/2, state.player.y+state.player.h/2, 80, 0, Math.PI*2); ctx.fill(); ctx.restore();
-    drawGameOverWithMsg(msg);
-    canvas.addEventListener('click', onRestartClick);
-    runStats.endTime = performance.now();
-    showOverlay('summary', { score: state.score, coins: runStats.coins, credits: runStats.credits, boosts: runStats.boosts, funny: msg });
-  }
-  function onRestartClick(e){ 
-    var rect = canvas.getBoundingClientRect(); 
-    var mx = (e.clientX-rect.left), my=(e.clientY-rect.top); 
-    if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){ 
-      canvas.removeEventListener('click', onRestartClick); 
-      start(); 
-    } 
-  }
-
-  /* =========================
-   * INPUT & UI EVENTS
-   * (bound AFTER functions are defined to avoid "not defined" issues)
-   * ========================= */
+  // ===== Input =====
   addEventListener('keydown', function(e){
     if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true;
     if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true;
@@ -933,7 +716,6 @@
     if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false; 
     if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false; 
   });
-
   function bindHold(btn, onDown, onUp){ 
     function down(e){ e.preventDefault(); onDown(); } 
     function up(e){ e.preventDefault(); onUp(); } 
@@ -972,9 +754,142 @@
   };
   btnCloseShop.onclick=function(){ hideOverlay(); if(state.running && state.paused){ togglePause(); } };
 
-  /* =========================
-   * POINTER DRAG CONTROL
-   * ========================= */
+  // ===== Start / Reset =====
+  var last = 0;
+  function start(){
+    state.running=true; state.paused=false; state.t=0; state.score=0;
+    state.level=1; state.levelFlash=0;
+    state.speed = (selectedDifficulty && selectedDifficulty.speed) || 2.3;
+    state.spawnTimer=0; state.coinTimer=0; state.boostTimer=9000+Math.random()*4000;
+    state.obstacles.length=0; state.coins.length=0; state.boosts.length=0; state.restartBtn=null; state.trail.length=0;
+    state.boostActive=false; state.boostTime=0; state.boostMultiplier=1; state.grace=0;
+    state.shieldCharges = upgrades.shield;
+
+    runStats = { coins:0, credits:0, boosts:0, startTime:performance.now(), endTime:0 };
+
+    var pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
+    state.player.w=pw; state.player.h=pw; state.player.scale=1; state.player.vx=0; state.player.tilt=0;
+    state.player.x=(W-pw)/2; state.player.y=H - pw*2.2;
+
+    btnPause.disabled=false; btnShop.disabled=false; btnStart.textContent='Restart';
+    hideOverlay();
+
+    try{ ensureAudio(); if(ac.state==='suspended') ac.resume(); ensureMusicGraph(); }catch(_){ }
+    if(!muted && bgMusic){ if(bgMusic.paused){ tryPlayMusic(); } }
+
+    last=performance.now(); requestAnimationFrame(loop);
+  }
+
+  // ===== Toggle Pause =====
+  function togglePause(){
+    if(!state.running) return;
+    state.paused = !state.paused;
+    btnPause.textContent = state.paused ? 'Resume' : 'Pause';
+    if(!state.paused){ last = performance.now(); requestAnimationFrame(loop); }
+  }
+
+  // ===== Loop =====
+  function loop(now){
+    if(!state.running || state.paused) return;
+    var dt=Math.min(33, now-last); last=now; state.t+=dt; 
+    // very gentle global speed creep (kept small)
+    state.speed += 0.00025*dt; 
+    if(state.grace>0) state.grace-=dt; 
+    if(state.levelFlash>0){ state.levelFlash -= dt; if(state.levelFlash<0) state.levelFlash=0; }
+
+    // timers
+    state.spawnTimer -= dt; if(state.spawnTimer<=0){ state.spawnTimer=getSpawnInterval(); spawnObstacle(); }
+    state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin;  spawnCoin(); }
+    state.boostTimer -= dt; if(state.boostTimer<=0){ state.boostTimer=9000+Math.random()*5000; spawnBoost(); }
+
+    if(state.boostActive){ state.boostTime -= dt; if(state.boostTime<=0){ state.boostActive=false; state.boostMultiplier=1; } }
+
+    // movement (smooth + slow)
+    var dir = (state.input.right?1:0) - (state.input.left?1:0);
+    var baseSpeed = Math.max(0.08, W*0.0005) * (1.5 + state.speed*0.5); // px/ms (gentler)
+    var targetVx = dir * baseSpeed;
+    state.player.vx += (targetVx - state.player.vx) * 0.22;
+    if(dir===0 && Math.abs(state.player.vx) < 0.002) state.player.vx = 0;
+    state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.x + state.player.vx * dt));
+
+    // entities motion
+    for(var i=0;i<state.obstacles.length;i++){ var o=state.obstacles[i]; o.y+=o.vy; o.rot+=o.vr; }
+    for(i=0;i<state.coins.length;i++){ var c=state.coins[i]; c.y+=c.vy; }
+    for(i=0;i<state.boosts.length;i++){ var b=state.boosts[i]; b.y+=b.vy; }
+
+    // magnet
+    if(upgrades.magnet>0){
+      var r = 30 + upgrades.magnet*40; // radius
+      for(i=0;i<state.coins.length;i++){ c=state.coins[i]; var dx=state.player.x+state.player.w/2 - c.x; var dy=state.player.y+state.player.h/2 - c.y; var d2=dx*dx+dy*dy; if(d2<r*r){ c.x += dx*0.04; c.y += dy*0.04; } }
+      for(i=0;i<state.boosts.length;i++){ b=state.boosts[i]; dx=state.player.x+state.player.w/2 - b.x; dy=state.player.y+state.player.h/2 - b.y; d2=dx*dx+dy*dy; if(d2<r*r){ b.x += dx*0.03; b.y += dy*0.03; } }
+    }
+
+    // cull
+    state.obstacles = state.obstacles.filter(function(o){ return o.y < H+60; });
+    state.coins     = state.coins.filter(function(c){ return c.y < H+60; });
+    state.boosts    = state.boosts.filter(function(b){ return b.y < H+60; });
+
+    // collisions
+    if(state.grace<=0 && !state.boostActive){
+      for(i=0;i<state.obstacles.length;i++){ o=state.obstacles[i]; if(rectsOverlap(state.player,o)){ 
+        if(state.shieldCharges>0){ state.shieldCharges--; state.grace=800; break; } 
+        else { gameOver(); return; } 
+      } }
+    }
+    for(i=state.coins.length-1;i>=0;i--){ c=state.coins[i]; if(circleRectOverlap(c,state.player)){ 
+      state.coins.splice(i,1); 
+      state.score += Math.round(25*selectedDifficulty.multiplier*state.boostMultiplier); 
+      var earned = 1 + (upgrades.coin||0); totalCredits += earned; 
+      runStats.coins += 1; runStats.credits += earned; 
+      setLS('meteorRun_credits', totalCredits); elCredits.textContent = 'Credits: '+totalCredits; 
+    } }
+    for(i=state.boosts.length-1;i>=0;i--){ b=state.boosts[i]; if(circleRectOverlap({x:b.x,y:b.y,r:b.r}, state.player)){ 
+      state.boosts.splice(i,1); state.boostActive=true; 
+      var extra = upgrades.boost*500; state.boostTime=2200+extra; // slightly shorter for balance
+      state.boostMultiplier=2 + upgrades.boost*0.2; 
+      runStats.boosts += 1; 
+    } }
+
+    // score & levels
+    state.score += Math.floor(0.02*dt*selectedDifficulty.multiplier*state.boostMultiplier);
+    var newLevel = getLevelFromScore(state.score);
+    if(newLevel !== state.level){ state.level = newLevel; state.levelFlash = 900; }
+    if(state.score>hi){ hi=state.score; setLS('meteorRun_hi', hi); elHi.textContent = 'Best: '+hi; }
+
+    // trail
+    addTrail();
+
+    // render
+    drawSpace(); drawHUD();
+    for(i=0;i<state.obstacles.length;i++) drawObstacle(state.obstacles[i]);
+    for(i=0;i<state.coins.length;i++) drawCoin(state.coins[i]);
+    for(i=0;i<state.boosts.length;i++) drawBoost(state.boosts[i]);
+    drawTrail();
+    drawPlayer(state.player);
+
+    elScore.textContent = 'Score: '+state.score;
+    requestAnimationFrame(loop);
+  }
+
+  // ===== Game over & restart =====
+  function gameOver(){
+    state.running=false; btnPause.disabled=true; btnShop.disabled=false;
+    var msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
+    drawGameOverWithMsg(msg);
+    canvas.addEventListener('click', onRestartClick);
+    runStats.endTime = performance.now();
+    showOverlay('summary', { score: state.score, coins: runStats.coins, credits: runStats.credits, boosts: runStats.boosts, funny: msg });
+  }
+  function onRestartClick(e){ 
+    var rect = canvas.getBoundingClientRect(); 
+    var mx = (e.clientX-rect.left), my=(e.clientY-rect.top); 
+    if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){ 
+      canvas.removeEventListener('click', onRestartClick); 
+      start(); 
+    } 
+  }
+
+  // Pointer drag control
   var dragging = false;
   function pointerToX(ev){ 
     var rect = canvas.getBoundingClientRect(); 
@@ -984,8 +899,7 @@
   }
   canvas.addEventListener('pointerdown', function(e){ 
     if(!settings.drag) return; 
-    dragging=true; 
-    state.input.left=false; state.input.right=false; 
+    dragging=true; state.input.left=false; state.input.right=false; 
     state.player.x = pointerToX(e); 
     if(canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId); 
   });
@@ -993,24 +907,24 @@
     if(!settings.drag || !dragging) return; 
     state.player.x = pointerToX(e); 
   });
-  canvas.addEventListener('pointerup', function(e){ 
+  canvas.addEventListener('pointerup',   function(e){ 
     if(!settings.drag) return; 
     dragging=false; 
     try{ if(canvas.releasePointerCapture) canvas.releasePointerCapture(e.pointerId); }catch(_){ } 
   });
 
-  /* =========================
-   * BOOTSTRAP
-   * ========================= */
+  // Kick off
   resize();
-  rebuildStars(true);
+  rebuildStars();
   drawStart();
   showOverlay('start');
   applySettingsUI();
 
   // Diagnostics
-  if(bgMusic){ bgMusic.addEventListener('canplaythrough', function(){ try{ console.log('Music ready:', bgMusic.currentSrc);}catch(_){}}); }
-  if(bgMusic){ bgMusic.addEventListener('error', function(){ try{ console.warn('Music failed to load. Place music.mp3 next to index.html.');}catch(_){}}); }
+  if(bgMusic){ 
+    bgMusic.addEventListener('canplaythrough', function(){ try{ console.log('Music ready:', bgMusic.currentSrc);}catch(_){}}); 
+    bgMusic.addEventListener('error', function(){ try{ console.warn('Music failed to load. Ensure music.mp3 sits next to index.html (case-sensitive).');}catch(_){}}); 
+  }
 })();
 </script>
 </body>
