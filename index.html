@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Meteor Dash — Final Build (Brand + Touch + Overlay Loop)</title>
+<title>Meteor Dash — Final Build</title>
 <style>
   :root{ --bg:#0b1020; --fg:#e2e8f0; }
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,system-ui; }
@@ -22,7 +22,7 @@
   #musicVolume{ width:110px; }
   #err{ position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#7f1d1d; color:#fff; padding:12px; border:2px solid #fecaca; border-radius:10px; font-family:ui-monospace,monospace; display:none; white-space:pre-wrap }
 
-  /* Title overlay */
+  /* Title overlay (first load only) */
   #titleOverlay{
     position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
     background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.05), rgba(0,0,0,.6));
@@ -83,10 +83,10 @@
   </footer>
 </div>
 
-<!-- Title overlay -->
+<!-- Title overlay (first load only) -->
 <div id="titleOverlay">
   <div class="card">
-    <h1>stevelin30 productions <span style='font-size:16px;font-weight:600;opacity:.8'>(v1.0)</span></h1>
+    <h1>stevelin30 productions <span style="font-size:16px;font-weight:600;opacity:.8">(v1.0)</span></h1>
     <p>Meteor Dash — Outrun the debris. Grab coins. Try not to explode.</p>
     <p><em>How to Play: Use ← → (A/D) or touch buttons to move. Collect coins, dodge meteors!</em></p>
     <button id="bigStart">Start</button>
@@ -99,9 +99,11 @@
   <button id="btnRight" aria-label="Move Right">▶</button>
 </div>
 
+<!-- Music (place music.mp3 next to this file) -->
 <audio id="bgMusic" loop preload="auto">
   <source src="music.mp3" type="audio/mpeg" />
 </audio>
+
 <div id="err"></div>
 
 <script>
@@ -286,7 +288,8 @@
     spawnTimer:0, coinTimer:0,
     player:{x:0,y:0,w:44,h:44,vx:0, tilt:0, scale:1, shield:false},
     obstacles:[], coins:[],
-    input:{left:false,right:false}
+    input:{left:false,right:false},
+    restartBtn:null
   };
 
   // ===== Background stars =====
@@ -321,14 +324,12 @@
     ctx.lineTo(p.x+p.w*0.88,p.y+p.h*0.85);
     ctx.quadraticCurveTo(p.x+p.w*0.5,p.y+p.h*1.02,p.x+p.w*0.12,p.y+p.h*0.85);
     ctx.closePath(); ctx.fill();
+    // cockpit + subtle glow
     ctx.fillStyle='rgba(173,216,230,0.65)';
-    ctx.beginPath(); ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2);
-    ctx.fill();
-    // Add cockpit glow
-    const pulse = 0.5 + 0.5 * Math.sin(Date.now()/600);
-    ctx.strokeStyle = `rgba(173,216,230,${0.4+0.4*pulse})`;
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(p.x+p.w*0.5,p.y+p.h*0.42,p.w*0.18,p.h*0.16,0,0,Math.PI*2); ctx.fill();
+    const pulseC = 0.5 + 0.5 * Math.sin(Date.now()/600);
+    ctx.strokeStyle = `rgba(173,216,230,${0.4+0.4*pulseC})`;
+    ctx.lineWidth = 3; ctx.stroke();
     ctx.restore();
   }
   function drawObstacle(o){
@@ -344,47 +345,54 @@
   function drawCoin(c){
     ctx.save();
     ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
-    const g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r);
-    g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#fbbf24');
+    const g=ctx.createLinearGradient(c.x,c.y-c.r,c.x,c.y+c.r); g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#fbbf24');
     ctx.fillStyle=g; ctx.fill();
-    // Add subtle pulse glow
     const pulse = 0.5 + 0.5 * Math.sin(Date.now()/500);
     ctx.strokeStyle = `rgba(255,215,0,${0.3+0.5*pulse})`;
-    ctx.lineWidth = 4;
-    ctx.stroke();
+    ctx.lineWidth = 4; ctx.stroke();
     ctx.restore();
   }
 
   // ===== UI text =====
   function drawHUD(){ drawTextOutlined(ctx, `Score: ${state.score}`, 16, 28, { size: 16, weight: 800, align:'left' }); }
-  function drawStart(){ drawSpace(); drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.38, { size: 28, weight: 800, align:'center' }); drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.46, { size: 16, weight: 700, align:'center' }); }
+  function drawStart(){
+    drawSpace();
+    drawTextOutlined(ctx, 'Meteor Dash', W/2, H*0.38, { size: 28, weight: 800, align:'center' });
+    drawTextOutlined(ctx, 'Pick a ship & difficulty, then press Start', W/2, H*0.46, { size: 16, weight: 700, align:'center' });
+  }
   function drawGameOverWithMsg(msg){
     drawSpace();
+    // flash ring at ship location (static glow)
+    if (state.lastCrashX != null){
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,100,0,0.5)';
+      ctx.beginPath();
+      ctx.arc(state.lastCrashX, state.lastCrashY, 80, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
     drawTextOutlined(ctx, 'Game Over', W/2, H*0.40, { size: 46, weight: 800, align:'center' });
     drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' });
     if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); }
-    // Add Restart button directly on canvas
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(W/2-70, H*0.65-22, 140, 44);
-    // Add glowing effect
+
+    // Canvas Restart button (glowing & pulsing)
+    const bx = W/2-70, by = H*0.65-22, bw = 140, bh = 44;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bx, by, bw, bh);
+    // glow
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.shadowColor = 'rgba(255,255,255,0.9)';
     ctx.shadowBlur = 12;
-    ctx.lineWidth = 3;
-    // Animate glowing outline
     const pulse = 0.5 + 0.5 * Math.sin(Date.now()/400);
     ctx.strokeStyle = `rgba(255,255,255,${0.5+0.5*pulse})`;
     ctx.lineWidth = 3;
-    ctx.strokeRect(W/2-70, H*0.65-22, 140, 44);
+    ctx.strokeRect(bx, by, bw, bh);
     ctx.restore();
-    ctx.strokeStyle = 'white'; ctx.lineWidth=2;
-    ctx.strokeRect(W/2-70, H*0.65-22, 140, 44);
     drawTextOutlined(ctx, 'Restart', W/2, H*0.65+6, { size: 18, weight: 700, align:'center' });
-    // Save button hitbox for click detection
-    state.restartBtn = {x:W/2-70, y:H*0.65-22, w:140, h:44};
-  }); drawTextOutlined(ctx, `Score: ${state.score}`, W/2, H*0.46, { size: 18, weight: 700, align:'center' }); if(msg){ drawTextOutlined(ctx, msg, W/2, H*0.54, { size: 16, weight: 700, align:'center' }); }
-     }
+
+    state.restartBtn = {x:bx, y:by, w:bw, h:bh};
+    // keep animating pulse while idle by scheduling a redraw
+    if(!state.running) requestAnimationFrame(()=> drawGameOverWithMsg(msg));
+  }
 
   // ===== Helpers =====
   function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
@@ -395,13 +403,34 @@
   function spawnCoin(){ const r=10+Math.random()*4, x=r+Math.random()*(W-r*2), y=-r-10, vy=state.speed+1; state.coins.push({x,y,r,vy}); }
 
   // ===== Input =====
-  addEventListener('keydown', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true; if(e.key==='p'||e.key==='P') togglePause(); if(e.key==='r'||e.key==='R') if(!state.running) start(); });
-  addEventListener('keyup', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false; });
+  addEventListener('keydown', e=>{
+    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=true;
+    if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=true;
+    if(e.key==='p'||e.key==='P') togglePause();
+    if(e.key==='r'||e.key==='R') if(!state.running) start();
+  });
+  addEventListener('keyup', e=>{
+    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') state.input.left=false;
+    if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') state.input.right=false;
+  });
 
-  function bindHold(btn, onDown, onUp){ const down=e=>{ e.preventDefault(); onDown(); }; const up=e=>{ e.preventDefault(); onUp(); }; if(!btn) return; btn.addEventListener('touchstart', down, {passive:false}); btn.addEventListener('touchend', up); btn.addEventListener('touchcancel', up); btn.addEventListener('mousedown', down); window.addEventListener('mouseup', up); }
-  bindHold(document.getElementById('btnLeft'),  ()=> state.input.left  = true, ()=> state.input.left  = false);
-  bindHold(document.getElementById('btnRight'), ()=> state.input.right = true, ()=> state.input.right = false);
-  window.addEventListener('touchmove', (e)=>{ if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault(); }, {passive:false});
+  function bindHold(btn, onDown, onUp){
+    if(!btn) return;
+    const down = e=>{ e.preventDefault(); onDown(); };
+    const up   = e=>{ e.preventDefault(); onUp();   };
+    btn.addEventListener('touchstart', down, {passive:false});
+    btn.addEventListener('touchend',   up);
+    btn.addEventListener('touchcancel',up);
+    btn.addEventListener('mousedown',  down);
+    window.addEventListener('mouseup', up);
+  }
+  bindHold(btnLeft,  ()=> state.input.left  = true, ()=> state.input.left  = false);
+  bindHold(btnRight, ()=> state.input.right = true, ()=> state.input.right = false);
+
+  // Prevent page drag while touching controls
+  window.addEventListener('touchmove', (e)=>{
+    if (e.target.closest && e.target.closest('#touchControls')) e.preventDefault();
+  }, {passive:false});
 
   btnPause.addEventListener('click', ()=> togglePause());
   function togglePause(){ if(!state.running) return; state.paused = !state.paused; btnPause.textContent = state.paused ? 'Resume' : 'Pause'; if(!state.paused){ last=performance.now(); requestAnimationFrame(loop); } }
@@ -409,11 +438,22 @@
   btnStart.addEventListener('click', start);
   if (bigStart) bigStart.addEventListener('click', ()=> btnStart.click());
 
+  canvas.addEventListener('click', function onRestartClick(e){
+    if(state.running) return;
+    if(!state.restartBtn) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX-rect.left), my=(e.clientY-rect.top);
+    const b = state.restartBtn;
+    if(mx>=b.x && mx<=b.x+b.w && my>=b.y && my<=b.y+b.h){ start(); }
+  });
+
   async function start(){
     // reset state
     state.running=true; state.paused=false; state.t=0; state.score=0;
     state.speed = selectedDifficulty.speed; state.spawnTimer=0; state.coinTimer=0;
-    state.obstacles.length=0; state.coins.length=0;
+    state.obstacles.length=0; state.coins.length=0; state.restartBtn=null;
+    state.lastCrashX=null; state.lastCrashY=null;
+
     const pw=Math.max(30, Math.min(64, Math.floor(W*0.05)));
     state.player.w=pw; state.player.h=pw; state.player.scale=1; state.player.vx=0; state.player.tilt=0;
     state.player.x=(W-pw)/2; state.player.y=H - pw*2.2;
@@ -438,7 +478,12 @@
     state.coinTimer  -= dt; if(state.coinTimer<=0){ state.coinTimer=selectedDifficulty.coin; spawnCoin(); }
 
     // move
-    const accel=0.0025*dt; if(state.input.left) state.player.vx -= accel*dt; if(state.input.right) state.player.vx += accel*dt; state.player.vx *= 0.96; state.player.x = Math.max(0, Math.min(W-state.player.w, state.player.x + state.player.vx));
+    const accel=0.0025*dt;
+    if(state.input.left)  state.player.vx -= accel*dt;
+    if(state.input.right) state.player.vx += accel*dt;
+    state.player.vx *= 0.96;
+    state.player.x = Math.max(0, Math.min(W-state.player.w, state.player.x + state.player.vx));
+
     for(const o of state.obstacles){ o.y+=o.vy; o.rot+=o.vr; }
     for(const c of state.coins) c.y+=c.vy;
 
@@ -447,8 +492,18 @@
     state.coins     = state.coins.filter(c=>c.y < H+60);
 
     // collisions
-    for(const o of state.obstacles){ if(rectsOverlap(state.player,o)){ gameOver(); return; } }
-    for(let i=state.coins.length-1;i>=0;i--){ const c=state.coins[i]; if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier); tone(1000,0.08,'triangle',0.06); } }
+    for(const o of state.obstacles){
+      if(rectsOverlap(state.player,o)){
+        // store crash position for flash
+        state.lastCrashX = state.player.x + state.player.w/2;
+        state.lastCrashY = state.player.y + state.player.h/2;
+        gameOver(); return;
+      }
+    }
+    for(let i=state.coins.length-1;i>=0;i--){
+      const c=state.coins[i];
+      if(circleRectOverlap(c,state.player)){ state.coins.splice(i,1); state.score += Math.round(25*selectedDifficulty.multiplier); tone(1000,0.08,'triangle',0.06); }
+    }
 
     // score tick
     state.score += Math.floor(0.02*dt*selectedDifficulty.multiplier);
@@ -468,37 +523,15 @@
     tone(160,0.25,'square',0.09);
     state.running=false; btnPause.disabled=true;
     const msg = funnyDeaths[Math.floor(Math.random()*funnyDeaths.length)];
-    // Flash explosion effect
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,100,0,0.5)';
-    ctx.beginPath();
-    ctx.arc(state.player.x+state.player.w/2, state.player.y+state.player.h/2, 80, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-    drawGameOverWithMsg(msg);
-    // Listen for canvas clicks to restart
-    canvas.addEventListener('click', onRestartClick);
+    drawGameOverWithMsg(msg); // no overlay here; canvas handles restart
   }
-  function onRestartClick(e){
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX-rect.left), my=(e.clientY-rect.top);
-    if(state.restartBtn && mx>=state.restartBtn.x && mx<=state.restartBtn.x+state.restartBtn.w && my>=state.restartBtn.y && my<=state.restartBtn.y+state.restartBtn.h){
-      canvas.removeEventListener('click', onRestartClick);
-      start();
-    }
-  }
-    
 
   // Kick off
   resize();
-  (function init(){
-    // difficulties setup must happen after default exists
-    const buttons = difficultySelect.querySelectorAll('button');
-    if(!buttons.length){ /* already created above */ }
-    rebuildStars(true); drawStart();
-  })();
+  rebuildStars(true);
+  drawStart();
 
-  // Diagnostics (console)
+  // Diagnostics
   bgMusic?.addEventListener('canplaythrough', ()=> console.log('Music ready:', bgMusic.currentSrc));
   bgMusic?.addEventListener('error', ()=> console.warn('Music failed to load. Ensure music.mp3 sits next to index.html (case-sensitive).'));
 })();
